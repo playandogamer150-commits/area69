@@ -14,3 +14,4 @@ nul
 *.pyo
 *.pyd
 test.db
+backend/area69.db
