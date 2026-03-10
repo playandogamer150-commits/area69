@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import get_current_user
-from app.models.database import PaymentCharge, User, get_db
+from app.models.database import LicenseKey, PaymentCharge, User, get_db
 from app.services.efi_pix_service import EfiPixService
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
@@ -35,6 +36,41 @@ def serialize_charge(charge: PaymentCharge) -> dict:
         "paidAt": charge.paid_at.isoformat() if charge.paid_at else None,
         "createdAt": charge.created_at.isoformat() if charge.created_at else None,
     }
+
+
+def _auto_activate_user_after_payment(db: Session, user: User) -> None:
+    if (user.license_status or "inactive") == "active":
+        return
+
+    license_key = (
+        db.query(LicenseKey)
+        .filter(LicenseKey.is_active == True, LicenseKey.assigned_user_id.is_(None))
+        .order_by(LicenseKey.created_at.asc())
+        .first()
+    )
+
+    now = datetime.utcnow()
+    if not license_key:
+        generated = f"AREA69-{uuid4().hex[:5].upper()}-{uuid4().hex[:5].upper()}-{uuid4().hex[:5].upper()}-{uuid4().hex[:5].upper()}"
+        license_key = LicenseKey(
+            key=generated,
+            plan_name="lifetime",
+            is_active=True,
+            max_activations=1,
+            activations_count=0,
+        )
+        db.add(license_key)
+        db.flush()
+
+    license_key.assigned_user_id = user.id
+    license_key.activations_count = max(license_key.activations_count or 0, 0) + 1
+    license_key.activated_at = now
+
+    user.license_key = license_key.key
+    user.license_status = "active"
+    user.license_plan = license_key.plan_name or "lifetime"
+    user.license_activated_at = now
+    user.license_expires_at = license_key.expires_at
 
 
 @router.post("/pix")
@@ -102,6 +138,7 @@ async def get_latest_pix_charge(current_user: User = Depends(get_current_user), 
             charge.status = status_data["status"]
             if charge.status in {"concluida", "paid"}:
                 charge.paid_at = charge.paid_at or datetime.utcnow()
+                _auto_activate_user_after_payment(db, current_user)
             db.commit()
             db.refresh(charge)
         except Exception:
@@ -126,6 +163,9 @@ async def efi_webhook(payload: dict, db: Session = Depends(get_db)):
 
         charge.status = "paid"
         charge.paid_at = charge.paid_at or datetime.utcnow()
+        user = db.query(User).filter(User.id == charge.user_id).first()
+        if user:
+            _auto_activate_user_after_payment(db, user)
         updated += 1
 
     if updated:
