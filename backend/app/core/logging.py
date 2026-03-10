@@ -1,6 +1,8 @@
 import logging
 import sys
 
+from app.core.config import settings
+
 
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
@@ -9,5 +11,5 @@ def get_logger(name: str) -> logging.Logger:
         formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     return logger

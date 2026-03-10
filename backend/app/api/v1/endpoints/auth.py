@@ -5,35 +5,88 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
+from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, get_current_user, get_password_hash, verify_password
 from app.models.database import LicenseKey, User, get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-settings = Settings()
 
 
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    name: Optional[str] = None
+    email: str = Field(..., min_length=5, max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
+    name: Optional[str] = Field(default=None, max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+            raise ValueError("Invalid email address")
+        return normalized
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if value.strip() != value:
+            raise ValueError("Password must not start or end with spaces")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., min_length=5, max_length=255)
+    password: str = Field(..., min_length=1, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+            raise ValueError("Invalid email address")
+        return normalized
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        if not value:
+            raise ValueError("Password is required")
+        return value
 
 
 class ActivateLicenseRequest(BaseModel):
-    licenseKey: str
+    licenseKey: str = Field(..., min_length=5, max_length=128)
+
+    @field_validator("licenseKey")
+    @classmethod
+    def normalize_license_key(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if not normalized:
+            raise ValueError("License key is required")
+        return normalized
 
 
 class UpdateProfileRequest(BaseModel):
-    name: Optional[str] = None
+    name: Optional[str] = Field(default=None, max_length=255)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 class TokenResponse(BaseModel):
@@ -95,17 +148,14 @@ def _ensure_seeded_license(db: Session, normalized_key: str) -> LicenseKey | Non
 
 @router.post("/register", response_model=TokenResponse)
 async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    name = payload.name.strip() if payload.name else None
-
-    existing_user = db.query(User).filter(User.email == email).first()
+    existing_user = db.query(User).filter(User.email == payload.email).first()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
     user = User(
-        email=email,
+        email=payload.email,
         hashed_password=get_password_hash(payload.password),
-        name=name,
+        name=payload.name,
         is_active=True,
         license_status="inactive",
     )
@@ -162,7 +212,7 @@ async def me(current_user: User = Depends(get_current_user)):
 @router.patch("/me")
 async def update_me(payload: UpdateProfileRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if payload.name is not None:
-        current_user.name = payload.name.strip() or None
+        current_user.name = payload.name
     db.commit()
     db.refresh(current_user)
     return serialize_user(current_user)
@@ -174,10 +224,20 @@ async def activate_license(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    normalized_key = payload.licenseKey.strip().upper()
+    normalized_key = payload.licenseKey
     license_key = _ensure_seeded_license(db, normalized_key)
     if not license_key:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="License key not found")
+    if (
+        current_user.license_key == license_key.key
+        and (current_user.license_status or "inactive") == "active"
+        and license_key.assigned_user_id == current_user.id
+    ):
+        return {
+            "ok": True,
+            "message": "License already active for this account",
+            "user": serialize_user(current_user),
+        }
     if not license_key.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="License key is inactive")
     if license_key.assigned_user_id and license_key.assigned_user_id != current_user.id:

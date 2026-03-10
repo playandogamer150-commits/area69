@@ -14,8 +14,8 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/model-clone-2.git
-cd model-clone-2
+git clone https://github.com/playandogamer150-commits/area69.git
+cd area69
 ```
 
 ### 2. Configure Environment Variables
@@ -40,6 +40,13 @@ Required environment variables:
 | `R2_SECRET_ACCESS_KEY` | Cloudflare R2 secret key |
 | `R2_BUCKET_NAME` | R2 bucket name |
 | `JWT_SECRET_KEY` | Secret key for JWT tokens |
+| `CORS_ORIGINS` | Allowed frontend origins, comma separated |
+| `BACKEND_PUBLIC_URL` | Public backend origin used by internal callbacks |
+| `INTERNAL_API_BASE_URL` | Internal base URL for server-side fetches |
+| `STORAGE_PATH` | Filesystem path used for local uploads |
+| `ALLOWED_HOSTS` | Allowed backend hosts, comma separated |
+| `ENABLE_API_DOCS` | Disable Swagger/ReDoc in production |
+| `LOG_LEVEL` | Backend log verbosity |
 
 ### 3. Start All Services
 
@@ -49,7 +56,7 @@ docker-compose up -d
 
 This will start:
 - Backend API (port 8000)
-- Frontend (port 3000)
+- Frontend (port 3003 in Docker Compose)
 - PostgreSQL database (port 5432)
 - Redis cache (port 6379)
 
@@ -60,7 +67,7 @@ This will start:
 curl http://localhost:8000/api/v1/health
 
 # Access frontend
-open http://localhost:3000
+open http://localhost:3003
 ```
 
 ## Development
@@ -89,6 +96,30 @@ npm run dev
 ```
 
 ## Production Deployment
+
+### Vercel + Render Recommended Split
+
+- Vercel: deploy only [`frontend`](/C:/Users/01%20Bigode/Documents/Playground/area69/frontend)
+- Render Web Service: deploy only [`backend`](/C:/Users/01%20Bigode/Documents/Playground/area69/backend)
+- Render Postgres: provide `DATABASE_URL`
+- Optional Redis: required for Celery/rate limiting in production-grade async flows
+
+Suggested production environment values:
+
+```env
+# Frontend (Vercel)
+VITE_API_BASE_URL=https://api.your-domain.com/api/v1
+
+# Backend (Render)
+ENVIRONMENT=production
+ENABLE_API_DOCS=false
+BACKEND_PUBLIC_URL=https://api.your-domain.com
+INTERNAL_API_BASE_URL=https://api.your-domain.com
+CORS_ORIGINS=https://your-domain.com,https://www.your-domain.com
+ALLOWED_HOSTS=api.your-domain.com
+STORAGE_PATH=/app/storage
+LOG_LEVEL=INFO
+```
 
 ### Using Docker Compose
 
@@ -154,7 +185,9 @@ For production, consider:
 1. **JWT Secret**: Use a strong random string for `JWT_SECRET_KEY`
 2. **API Keys**: Never commit API keys to version control
 3. **HTTPS**: Always use HTTPS in production
-4. **Rate Limiting**: Implement rate limiting for production
+4. **Trusted Hosts**: Set `ALLOWED_HOSTS` to your real domains only
+5. **API Docs**: Set `ENABLE_API_DOCS=false` in production
+6. **Rate Limiting**: Implement rate limiting for production
 
 ## Monitoring
 

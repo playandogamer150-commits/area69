@@ -4,21 +4,28 @@ from datetime import datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
+from app.core.config import settings
 from app.core.security import get_current_user
 from app.models.database import LicenseKey, PaymentCharge, User, get_db
 from app.services.efi_pix_service import EfiPixService
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
-settings = Settings()
 
 
 class CreatePixChargeRequest(BaseModel):
     amountCents: int | None = Field(default=None, ge=1)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=255)
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
 
 
 def serialize_charge(charge: PaymentCharge) -> dict:
@@ -73,15 +80,45 @@ def _auto_activate_user_after_payment(db: Session, user: User) -> None:
     user.license_expires_at = license_key.expires_at
 
 
+def _finalize_paid_charge(db: Session, charge: PaymentCharge, user: User | None) -> None:
+    charge.paid_at = charge.paid_at or datetime.utcnow()
+    if charge.amount_cents < settings.PIX_DEFAULT_AMOUNT_CENTS:
+        charge.status = "underpaid"
+        return
+
+    charge.status = "paid"
+    if user:
+        _auto_activate_user_after_payment(db, user)
+
+
 @router.post("/pix")
 async def create_pix_charge(
     payload: CreatePixChargeRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if (current_user.license_status or "inactive") == "active":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already has an active license")
+
     service = EfiPixService(settings)
-    amount_cents = payload.amountCents or settings.PIX_DEFAULT_AMOUNT_CENTS
-    description = (payload.description or "Ativacao de acesso AREA 69 via Pix").strip()
+    amount_cents = settings.PIX_DEFAULT_AMOUNT_CENTS
+    if payload.amountCents and payload.amountCents != amount_cents:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pix amount is defined by the server")
+
+    existing_charge = (
+        db.query(PaymentCharge)
+        .filter(
+            PaymentCharge.user_id == current_user.id,
+            PaymentCharge.method == "pix",
+            PaymentCharge.status.in_(("pending", "ativa")),
+        )
+        .order_by(PaymentCharge.created_at.desc())
+        .first()
+    )
+    if existing_charge and existing_charge.pix_copy_paste and existing_charge.paid_at is None:
+        return serialize_charge(existing_charge)
+
+    description = payload.description or "Ativacao de acesso AREA 69 via Pix"
 
     try:
         charge_data = await service.create_pix_charge(
@@ -137,8 +174,7 @@ async def get_latest_pix_charge(current_user: User = Depends(get_current_user), 
             status_data = await EfiPixService(settings).get_charge_status(charge.txid)
             charge.status = status_data["status"]
             if charge.status in {"concluida", "paid"}:
-                charge.paid_at = charge.paid_at or datetime.utcnow()
-                _auto_activate_user_after_payment(db, current_user)
+                _finalize_paid_charge(db, charge, current_user)
             db.commit()
             db.refresh(charge)
         except Exception:
@@ -161,11 +197,16 @@ async def efi_webhook(payload: dict, db: Session = Depends(get_db)):
         if not charge:
             continue
 
-        charge.status = "paid"
-        charge.paid_at = charge.paid_at or datetime.utcnow()
+        try:
+            status_data = await EfiPixService(settings).get_charge_status(txid)
+        except Exception:
+            continue
+
+        if status_data["status"] not in {"concluida", "paid"}:
+            continue
+
         user = db.query(User).filter(User.id == charge.user_id).first()
-        if user:
-            _auto_activate_user_after_payment(db, user)
+        _finalize_paid_charge(db, charge, user)
         updated += 1
 
     if updated:

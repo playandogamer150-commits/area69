@@ -10,14 +10,14 @@ import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import pkcs12
 
-from app.core.config import Settings
+from app.core.config import Settings, settings as app_settings
 
 logger = logging.getLogger(__name__)
 
 
 class EfiPixService:
     def __init__(self, settings: Settings | None = None):
-        self.settings = settings or Settings()
+        self.settings = settings or app_settings
         self.base_url = "https://pix-h.api.efipay.com.br" if self.settings.EFI_SANDBOX else "https://pix.api.efipay.com.br"
 
     def is_configured(self) -> bool:

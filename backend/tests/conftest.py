@@ -1,8 +1,12 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key")
 
 from app.main import app
 from app.models.database import Base, get_db

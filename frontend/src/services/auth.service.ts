@@ -15,7 +15,7 @@ export const authService = {
     return response.data
   },
 
-  async logout() {
+  logout() {
     clearSession()
     window.location.href = '/login'
   },
