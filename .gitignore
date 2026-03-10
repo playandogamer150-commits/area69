@@ -15,3 +15,4 @@ nul
 *.pyd
 test.db
 backend/area69.db
+backend/render.env
