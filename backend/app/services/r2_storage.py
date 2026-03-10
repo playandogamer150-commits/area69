@@ -5,11 +5,10 @@ from typing import Any, Dict, List, Optional
 import boto3
 from botocore.exceptions import ClientError
 
-from app.core.config import Settings
+from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
-settings = Settings()
 
 
 class R2StorageService:

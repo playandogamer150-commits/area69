@@ -12,6 +12,7 @@ import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import { imageEditService } from '@/services/image-edit.service'
 import { ChevronLeft, ChevronRight, Clock3, Download, Loader2, RotateCcw, Sparkles, Star, Trash2 } from 'lucide-react'
 import { ImageEditHistoryItem, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
+import { getApiErrorMessage } from '@/utils/api-error'
 
 const RESOLUTION_MIN = 256
 const RESOLUTION_MAX = 2048
@@ -145,13 +146,13 @@ export function ImageEdit() {
         pollingRef.current = setInterval(() => pollStatus(response.taskId), 3000)
         toast({ title: 'Processando', description: 'Edicao enviada para a WaveSpeed.' })
       }
-    } catch (error: any) {
+    } catch (error) {
       setIsProcessing(false)
       setStatusLabel('failed')
       setProgressValue(100)
       toast({
         title: 'Erro',
-        description: error.response?.data?.detail || 'Falha ao iniciar edicao',
+        description: getApiErrorMessage(error, 'Falha ao iniciar edicao'),
         variant: 'destructive',
       })
     }

@@ -26,7 +26,7 @@ from app.models.schemas import (
     VideoMotionRequest,
     VideoMotionResponse,
 )
-from app.services.fal_service import FalService
+from app.core.config import settings
 from app.services.replicate_service import ReplicateService
 from app.services.r2_storage import R2Storage
 from app.services.wavespeed_service import WaveSpeedService
@@ -389,7 +389,7 @@ async def generate_image_edit(
     uploaded_urls: list[str] = []
     async with httpx.AsyncClient(timeout=120.0) as client:
         for image_path in request.images:
-            source_response = await client.get(f"http://backend:8000{image_path}")
+            source_response = await client.get(f"{settings.internal_api_base_url}{image_path}")
             if source_response.status_code != 200:
                 raise HTTPException(status_code=400, detail=f"Falha ao ler imagem: {image_path}")
             file_name = image_path.rsplit("/", 1)[-1]

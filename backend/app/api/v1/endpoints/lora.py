@@ -13,14 +13,13 @@ from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.models.database import LoRAModel, User, get_db
-from app.core.config import Settings
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import get_current_licensed_user
 from app.services.replicate_service import ReplicateService
 from app.services.r2_storage import R2Storage
 
 logger = get_logger(__name__)
-settings = Settings()
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
@@ -146,7 +145,7 @@ async def create_or_recover_lora(
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
                 for i, path in enumerate(request.referencePhotos):
                     try:
-                        img_response = await client.get(f"http://backend:8000{path}")
+                        img_response = await client.get(f"{settings.internal_api_base_url}{path}")
                         if img_response.status_code == 200:
                             ext = path.split('.')[-1] if '.' in path else 'jpg'
                             filename = f"image_{i+1}.{ext}"

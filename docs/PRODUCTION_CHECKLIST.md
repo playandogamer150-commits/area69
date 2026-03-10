@@ -4,6 +4,7 @@
 
 ### Environment Setup
 - [ ] All environment variables configured
+- [ ] `CORS_ORIGINS`, `BACKEND_PUBLIC_URL`, `INTERNAL_API_BASE_URL` and `STORAGE_PATH` reviewed
 - [ ] API credentials tested (Replicate, Fal.ai, R2)
 - [ ] Database migrations executed
 - [ ] SSL certificates configured
