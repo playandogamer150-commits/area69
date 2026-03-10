@@ -29,6 +29,10 @@ class Settings(BaseSettings):
         "http://localhost:3000,http://localhost:3003,http://127.0.0.1:3000,http://127.0.0.1:3003",
         env="CORS_ORIGINS",
     )
+    ALLOWED_HOSTS: str = Field("localhost,127.0.0.1,testserver", env="ALLOWED_HOSTS")
+    ENABLE_API_DOCS: bool = Field(True, env="ENABLE_API_DOCS")
+    ENVIRONMENT: str = Field("development", env="ENVIRONMENT")
+    LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
 
     # Security
     JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")
@@ -60,6 +64,11 @@ class Settings(BaseSettings):
     @property
     def storage_path(self) -> Path:
         return Path(self.STORAGE_PATH).resolve()
+
+    @property
+    def allowed_hosts_list(self) -> list[str]:
+        hosts = [host.strip() for host in self.ALLOWED_HOSTS.split(",") if host.strip()]
+        return hosts or ["localhost", "127.0.0.1"]
 
 
 @lru_cache
