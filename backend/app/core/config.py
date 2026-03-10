@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -19,6 +22,13 @@ class Settings(BaseSettings):
     R2_PUBLIC_BASE_URL: str | None = Field(default=None, env="R2_PUBLIC_BASE_URL")
     DATABASE_URL: str = Field("sqlite:///./area69.db", env="DATABASE_URL")
     REDIS_URL: str = Field("redis://localhost:6379/0", env="REDIS_URL")
+    BACKEND_PUBLIC_URL: str = Field("http://localhost:8000", env="BACKEND_PUBLIC_URL")
+    INTERNAL_API_BASE_URL: str | None = Field(default=None, env="INTERNAL_API_BASE_URL")
+    STORAGE_PATH: str = Field("./storage", env="STORAGE_PATH")
+    CORS_ORIGINS: str = Field(
+        "http://localhost:3000,http://localhost:3003,http://127.0.0.1:3000,http://127.0.0.1:3003",
+        env="CORS_ORIGINS",
+    )
 
     # Security
     JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")
@@ -39,6 +49,22 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
 
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
+    @property
+    def internal_api_base_url(self) -> str:
+        return (self.INTERNAL_API_BASE_URL or self.BACKEND_PUBLIC_URL).rstrip("/")
+
+    @property
+    def storage_path(self) -> Path:
+        return Path(self.STORAGE_PATH).resolve()
+
+
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+settings = get_settings()

@@ -9,12 +9,11 @@ from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings
+from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, get_current_user, get_password_hash, verify_password
 from app.models.database import LicenseKey, User, get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-settings = Settings()
 
 
 class RegisterRequest(BaseModel):

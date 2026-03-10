@@ -7,6 +7,7 @@ import logging
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 
+from app.core.config import settings
 from app.core.security import get_current_licensed_user
 from app.models.database import User
 
@@ -65,7 +66,7 @@ async def upload_reference_photos(
     for photo in referencePhotos:
         validate_image_file(photo)
 
-    upload_dir = Path(f"/app/storage/{userId}/{modelName}")
+    upload_dir = settings.storage_path / userId / modelName
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
@@ -121,7 +122,7 @@ async def upload_edit_images(
         validate_image_file(image)
 
     batch_id = str(uuid.uuid4())
-    upload_dir = Path(f"/app/storage/{userId}/image-edits/{batch_id}")
+    upload_dir = settings.storage_path / userId / "image-edits" / batch_id
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []

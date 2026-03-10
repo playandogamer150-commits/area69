@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List
 
+from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -13,8 +13,8 @@ logger = get_logger(__name__)
 class LocalStorageService:
     """Local file storage service for development/testing."""
     
-    def __init__(self, base_path: str = "/app/storage"):
-        self.base_path = Path(base_path)
+    def __init__(self, base_path: str | None = None):
+        self.base_path = Path(base_path) if base_path else settings.storage_path
         self.base_path.mkdir(parents=True, exist_ok=True)
     
     async def save_reference_photos(

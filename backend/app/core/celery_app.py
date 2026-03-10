@@ -1,5 +1,6 @@
 from celery import Celery
 from celery.signals import worker_init
+
 from app.core.config import settings
 
 celery_app = Celery(

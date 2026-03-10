@@ -14,8 +14,8 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/model-clone-2.git
-cd model-clone-2
+git clone https://github.com/playandogamer150-commits/area69.git
+cd area69
 ```
 
 ### 2. Configure Environment Variables
@@ -40,6 +40,10 @@ Required environment variables:
 | `R2_SECRET_ACCESS_KEY` | Cloudflare R2 secret key |
 | `R2_BUCKET_NAME` | R2 bucket name |
 | `JWT_SECRET_KEY` | Secret key for JWT tokens |
+| `CORS_ORIGINS` | Allowed frontend origins, comma separated |
+| `BACKEND_PUBLIC_URL` | Public backend origin used by internal callbacks |
+| `INTERNAL_API_BASE_URL` | Internal base URL for server-side fetches |
+| `STORAGE_PATH` | Filesystem path used for local uploads |
 
 ### 3. Start All Services
 
@@ -49,7 +53,7 @@ docker-compose up -d
 
 This will start:
 - Backend API (port 8000)
-- Frontend (port 3000)
+- Frontend (port 3003 in Docker Compose)
 - PostgreSQL database (port 5432)
 - Redis cache (port 6379)
 
@@ -60,7 +64,7 @@ This will start:
 curl http://localhost:8000/api/v1/health
 
 # Access frontend
-open http://localhost:3000
+open http://localhost:3003
 ```
 
 ## Development
