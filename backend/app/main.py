@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
+from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints import auth as auth_routes
 from app.api.v1.endpoints import health as health_routes
@@ -56,6 +57,33 @@ def _ensure_user_columns(engine) -> None:
                 connection.execute(text(sql))
 
 
+def _seed_license_keys(engine) -> None:
+    seed_file = Path(__file__).resolve().parents[2] / "area69-license-seed.txt"
+    if not seed_file.exists():
+        return
+
+    from app.models.database import LicenseKey, SessionLocal
+
+    keys = [line.strip().upper() for line in seed_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if not keys:
+        return
+
+    db: Session = SessionLocal()
+    try:
+        existing = {item.key for item in db.query(LicenseKey).filter(LicenseKey.key.in_(keys)).all()}
+        new_items = [
+            LicenseKey(key=item, plan_name="lifetime", is_active=True, max_activations=1, activations_count=0)
+            for item in keys
+            if item not in existing
+        ]
+        if new_items:
+            db.add_all(new_items)
+            db.commit()
+            logger.info("Seeded %s license keys", len(new_items))
+    finally:
+        db.close()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="AREA 69 Backend",
@@ -98,6 +126,7 @@ async def startup_db_client():
         from app.models.database import Base, engine
         Base.metadata.create_all(bind=engine)
         _ensure_user_columns(engine)
+        _seed_license_keys(engine)
         logger.info("Database tables created successfully")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
