@@ -58,8 +58,13 @@ def _ensure_user_columns(engine) -> None:
 
 
 def _seed_license_keys(engine) -> None:
-    seed_file = Path(__file__).resolve().parents[2] / "area69-license-seed.txt"
-    if not seed_file.exists():
+    app_file = Path(__file__).resolve()
+    candidates = [
+        app_file.parents[1] / "area69-license-seed.txt",
+        app_file.parents[2] / "area69-license-seed.txt",
+    ]
+    seed_file = next((path for path in candidates if path.exists()), None)
+    if seed_file is None:
         return
 
     from app.models.database import LicenseKey, SessionLocal
