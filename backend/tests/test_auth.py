@@ -1,5 +1,6 @@
 import pytest
-from app.core.security import get_password_hash, verify_password, create_access_token, decode_token
+
+from app.core.security import create_access_token, decode_token, get_password_hash, verify_password
 
 
 def test_password_hashing():
@@ -72,6 +73,18 @@ def test_login_success(client, test_user_data):
     assert response.json()["token_type"] == "bearer"
 
 
+def test_login_normalizes_email(client, test_user_data):
+    client.post("/api/v1/auth/register", json=test_user_data)
+
+    response = client.post("/api/v1/auth/login", json={
+        "email": "  TEST@EXAMPLE.COM  ",
+        "password": test_user_data["password"],
+    })
+
+    assert response.status_code == 200
+    assert response.json()["user"]["email"] == test_user_data["email"]
+
+
 def test_login_wrong_password(client, test_user_data):
     """Test login with wrong password."""
     client.post("/api/v1/auth/register", json=test_user_data)
@@ -119,3 +132,23 @@ def test_unauthorized_access(client):
     response = client.get("/api/v1/auth/me")
     
     assert response.status_code == 401
+
+
+def test_refresh_token_cannot_access_protected_endpoints(client, test_user_data):
+    register_response = client.post("/api/v1/auth/register", json=test_user_data)
+    refresh_token = register_response.json()["refresh_token"]
+
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {refresh_token}"}
+    )
+
+    assert response.status_code == 401
+
+
+def test_register_rejects_short_password(client, test_user_data):
+    payload = {**test_user_data, "password": "short"}
+
+    response = client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 422
