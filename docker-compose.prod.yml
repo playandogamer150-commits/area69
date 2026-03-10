@@ -19,6 +19,13 @@ services:
       - R2_PUBLIC_BASE_URL=${R2_PUBLIC_BASE_URL}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - ENVIRONMENT=production
+      - BACKEND_PUBLIC_URL=${BACKEND_PUBLIC_URL}
+      - INTERNAL_API_BASE_URL=${INTERNAL_API_BASE_URL}
+      - STORAGE_PATH=/app/storage
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - ENABLE_API_DOCS=false
+      - LOG_LEVEL=${LOG_LEVEL}
     depends_on:
       db:
         condition: service_healthy
@@ -83,6 +90,9 @@ services:
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - INTERNAL_API_BASE_URL=http://backend:8000
+      - STORAGE_PATH=/app/storage
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     depends_on:
       - redis
       - db
