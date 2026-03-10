@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -55,6 +56,41 @@ def serialize_user(user: User) -> dict:
         "licenseExpiresAt": user.license_expires_at.isoformat() if user.license_expires_at else None,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
     }
+
+
+def _find_seed_file() -> Path | None:
+    app_file = Path(__file__).resolve()
+    candidates = [
+        app_file.parents[3] / "area69-license-seed.txt",
+        app_file.parents[4] / "area69-license-seed.txt",
+    ]
+    return next((path for path in candidates if path.exists()), None)
+
+
+def _ensure_seeded_license(db: Session, normalized_key: str) -> LicenseKey | None:
+    existing = db.query(LicenseKey).filter(LicenseKey.key == normalized_key).first()
+    if existing:
+        return existing
+
+    seed_file = _find_seed_file()
+    if seed_file is None:
+        return None
+
+    keys = {line.strip().upper() for line in seed_file.read_text(encoding="utf-8").splitlines() if line.strip()}
+    if normalized_key not in keys:
+        return None
+
+    seeded = LicenseKey(
+        key=normalized_key,
+        plan_name="lifetime",
+        is_active=True,
+        max_activations=1,
+        activations_count=0,
+    )
+    db.add(seeded)
+    db.commit()
+    db.refresh(seeded)
+    return seeded
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -139,7 +175,7 @@ async def activate_license(
     db: Session = Depends(get_db),
 ):
     normalized_key = payload.licenseKey.strip().upper()
-    license_key = db.query(LicenseKey).filter(LicenseKey.key == normalized_key).first()
+    license_key = _ensure_seeded_license(db, normalized_key)
     if not license_key:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="License key not found")
     if not license_key.is_active:
