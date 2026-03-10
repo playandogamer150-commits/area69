@@ -1,0 +1,16 @@
+node_modules/
+frontend/node_modules/
+frontend/dist/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/tests/__pycache__/
+backend/storage/
+backend/certs/
+.env
+frontend/.env
+frontend/.env.local
+nul
+*.pyc
+*.pyo
+*.pyd
+test.db
