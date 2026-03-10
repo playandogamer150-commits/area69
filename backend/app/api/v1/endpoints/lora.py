@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import List, Optional
+from urllib.parse import unquote
 
 import io
 import zipfile
@@ -28,41 +29,21 @@ def slugify_model_name(value: str) -> str:
     return slug or "modelclone-lora"
 
 
-def resolve_or_create_user(user_id_value: str, db: Session) -> User:
-    user = None
-    try:
-        user = db.query(User).filter(User.id == int(user_id_value)).first()
-    except (TypeError, ValueError):
-        user = None
-    if user:
-        return user
+def normalize_model_name(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="modelName invalido")
+    return normalized
 
-    if "@" in user_id_value:
-        existing = db.query(User).filter(User.email == user_id_value).first()
-        if existing:
-            return existing
 
-    email = f"user_{user_id_value}@example.com"
-    user = db.query(User).filter(User.email == email).first()
-    if user:
-        return user
-
-    try:
-        user_id = int(user_id_value)
-        existing = db.query(User).filter(User.id == user_id).first()
-        if existing:
-            max_user = db.query(User).order_by(User.id.desc()).first()
-            user_id = (max_user.id + 1) if max_user else 1
-        user = User(id=user_id, email=email, hashed_password="", name=user_id_value)
-    except ValueError:
-        max_user = db.query(User).order_by(User.id.desc()).first()
-        new_id = (max_user.id + 1) if max_user else 1
-        user = User(id=new_id, email=email, hashed_password="", name=user_id_value)
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+def validate_reference_photo_path(path: str, current_user: User) -> str:
+    normalized = unquote(path.strip())
+    expected_prefix = f"/storage/{current_user.id}/"
+    if not normalized.startswith(expected_prefix):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Reference photo does not belong to the current user")
+    if ".." in normalized:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reference photo path")
+    return normalized
 
 
 class LoRARecoveryRequest(BaseModel):
@@ -113,15 +94,19 @@ async def create_or_recover_lora(
             detail="triggerWord é obrigatório"
         )
 
-    user = resolve_or_create_user(request.userId, db)
-    user_id = user.id
+    if request.userId.strip() != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User mismatch")
+
+    user_id = current_user.id
+    safe_model_name = normalize_model_name(request.modelName)
+    safe_reference_photos = [validate_reference_photo_path(path, current_user) for path in request.referencePhotos]
 
     token = settings.REPLICATE_API_TOKEN
     
     if not token:
         db_lora = LoRAModel(
             user_id=user_id,
-            model_name=request.modelName,
+            model_name=safe_model_name,
             fal_lora_url=None,
             trigger_word=request.triggerWord,
             enable_nsfw=request.enableNsfw,
@@ -136,14 +121,14 @@ async def create_or_recover_lora(
             loraId=str(db_lora.id),
             falLoraUrl=None,
             status="failed",
-            referencePhotos=request.referencePhotos,
+            referencePhotos=safe_reference_photos,
         )
 
     try:
         async with httpx.AsyncClient(timeout=300.0) as client:
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                for i, path in enumerate(request.referencePhotos):
+                for i, path in enumerate(safe_reference_photos):
                     try:
                         img_response = await client.get(f"{settings.internal_api_base_url}{path}")
                         if img_response.status_code == 200:
@@ -157,7 +142,7 @@ async def create_or_recover_lora(
             zip_content = zip_buffer.getvalue()
             
             r2 = R2Storage()
-            zip_filename = f"lora-training/{user_id}/{request.modelName}/training_images.zip"
+            zip_filename = f"lora-training/{user_id}/{slugify_model_name(safe_model_name)}/training_images.zip"
             r2_result = r2.upload_file(
                 file_content=zip_content,
                 file_name=zip_filename,
@@ -180,7 +165,7 @@ async def create_or_recover_lora(
                 )
             logger.info(f"Uploaded ZIP to R2: {file_url}")
             
-            logger.info(f"Starting LoRA training for user {user_id} with model {request.modelName}")
+            logger.info(f"Starting LoRA training for user {user_id} with model {safe_model_name}")
             logger.info(f"Trigger word: {request.triggerWord}, NSFW: {request.enableNsfw}")
             
             replicate_owner = settings.REPLICATE_OWNER
@@ -190,14 +175,14 @@ async def create_or_recover_lora(
                     detail="REPLICATE_OWNER não configurado no backend",
                 )
 
-            destination_model_name = f"mc2-{user_id}-{slugify_model_name(request.modelName)}"
+            destination_model_name = f"mc2-{user_id}-{slugify_model_name(safe_model_name)}"
             destination = f"{replicate_owner}/{destination_model_name}"
             replicate_service = ReplicateService(token)
 
             create_model_result = await replicate_service.create_model(
                 owner=replicate_owner,
                 name=destination_model_name,
-                description=f"AREA 69 fine-tune for {request.modelName}",
+                description=f"AREA 69 fine-tune for {safe_model_name}",
                 visibility="private",
             )
             if create_model_result.get("error") and "already exists" not in create_model_result.get("error", "").lower():
@@ -221,7 +206,7 @@ async def create_or_recover_lora(
                 
                 db_lora = LoRAModel(
                     user_id=user_id,
-                    model_name=request.modelName,
+                    model_name=safe_model_name,
                     fal_lora_url=None,
                     trigger_word=request.triggerWord,
                     enable_nsfw=request.enableNsfw,
@@ -236,7 +221,7 @@ async def create_or_recover_lora(
                     loraId=str(db_lora.id),
                     falLoraUrl=None,
                     status="failed",
-                    referencePhotos=request.referencePhotos,
+                    referencePhotos=safe_reference_photos,
                 )
             
             prediction_id = result.get("id")
@@ -244,7 +229,7 @@ async def create_or_recover_lora(
             
             db_lora = LoRAModel(
                 user_id=user_id,
-                model_name=request.modelName,
+                model_name=safe_model_name,
                 fal_lora_url=destination,
                 trigger_word=request.triggerWord,
                 enable_nsfw=request.enableNsfw,
@@ -258,11 +243,11 @@ async def create_or_recover_lora(
 
             return LoRARecoveryResponse(
                 ok=True,
-                message=f"Treinamento LoRA '{request.modelName}' iniciado. Status: {prediction_status}",
+                message=f"Treinamento LoRA '{safe_model_name}' iniciado. Status: {prediction_status}",
                 loraId=str(db_lora.id),
                 falLoraUrl=destination,
                 status=prediction_status,
-                referencePhotos=request.referencePhotos,
+                referencePhotos=safe_reference_photos,
                 predictionId=prediction_id,
             )
             
@@ -273,7 +258,7 @@ async def create_or_recover_lora(
 
         db_lora = LoRAModel(
             user_id=user_id,
-            model_name=request.modelName,
+            model_name=safe_model_name,
             fal_lora_url=None,
             trigger_word=request.triggerWord,
             enable_nsfw=request.enableNsfw,

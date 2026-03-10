@@ -156,37 +156,9 @@ def tuned_prompt_strength(request: GenerationRequest) -> float:
     return round(clamp(base, 0.7, 0.98), 2)
 
 
-def get_or_create_user_id(user_id_value: str, db: Session) -> int:
-    user = None
-    email = f"user_{user_id_value}@example.com"
-    try:
-        user = db.query(User).filter(User.id == int(user_id_value)).first()
-    except (TypeError, ValueError):
-        user = None
-    if not user and "@" in user_id_value:
-        user = db.query(User).filter(User.email == user_id_value).first()
-    if not user:
-        email = f"user_{user_id_value}@example.com"
-        user = db.query(User).filter(User.email == email).first()
-    if user:
-        return user.id
-
-    try:
-        numeric_id = int(user_id_value)
-        existing = db.query(User).filter(User.id == numeric_id).first()
-        if existing:
-            max_user = db.query(User).order_by(User.id.desc()).first()
-            numeric_id = (max_user.id + 1) if max_user else 1
-        user = User(id=numeric_id, email=email, hashed_password="", name=user_id_value)
-    except ValueError:
-        max_user = db.query(User).order_by(User.id.desc()).first()
-        new_id = (max_user.id + 1) if max_user else 1
-        user = User(id=new_id, email=email, hashed_password="", name=user_id_value)
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user.id
+def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
+    if entity_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Resource does not belong to the current user")
 
 
 async def persist_remote_image_to_r2(image_url: str, storage_key: str) -> str:
@@ -219,6 +191,7 @@ async def generate_image(
     
     if not lora:
         raise HTTPException(status_code=404, detail="LoRA not found")
+    ensure_task_belongs_to_user(lora.user_id, current_user)
     
     if lora.status != "ready":
         raise HTTPException(
@@ -317,6 +290,7 @@ async def generate_image(
 async def get_generation_status(
     task_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_licensed_user),
 ):
     """Get generation task status."""
     generation = db.query(Generation).filter(
@@ -325,6 +299,7 @@ async def get_generation_status(
     
     if not generation:
         raise HTTPException(status_code=404, detail="Task not found")
+    ensure_task_belongs_to_user(generation.user_id, current_user)
         
     if generation.status in ("pending", "created", "processing") and not task_id.startswith("gen_"):
         try:
@@ -386,6 +361,9 @@ async def generate_image_edit(
     if not request.images:
         raise HTTPException(status_code=400, detail="Envie ao menos uma imagem para edicao")
 
+    if request.userId.strip() != str(current_user.id):
+        raise HTTPException(status_code=403, detail="User mismatch")
+
     uploaded_urls: list[str] = []
     async with httpx.AsyncClient(timeout=120.0) as client:
         for image_path in request.images:
@@ -412,10 +390,9 @@ async def generate_image_edit(
     if result.get("error"):
         raise HTTPException(status_code=result.get("status_code", 500), detail=result["error"])
 
-    user_id = get_or_create_user_id(request.userId, db)
     task_id = result.get("id") or result.get("taskId") or result.get("request_id") or f"edit_{uuid.uuid4().hex[:12]}"
     generation = Generation(
-        user_id=user_id,
+        user_id=current_user.id,
         task_id=task_id,
         task_type="image_edit",
         prompt=request.prompt,
@@ -440,6 +417,7 @@ async def generate_image_edit(
 async def face_swap_image(
     request: FaceSwapRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_licensed_user),
 ):
     """Face swap on static image."""
     replicate_service = ReplicateService()
@@ -460,6 +438,7 @@ async def face_swap_image(
 async def face_swap_video(
     request: FaceSwapVideoRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_licensed_user),
 ):
     """Face swap on video."""
     replicate_service = ReplicateService()
@@ -480,6 +459,7 @@ async def face_swap_video(
 async def image_faceswap(
     request: ImageFaceswapRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_licensed_user),
 ):
     """Alternative face swap endpoint."""
     replicate_service = ReplicateService()
@@ -498,6 +478,7 @@ async def image_faceswap(
 async def generate_video_motion(
     request: VideoMotionRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_licensed_user),
 ):
     """Generate animated video from image."""
     replicate_service = ReplicateService()
@@ -516,6 +497,7 @@ async def generate_video_motion(
 async def generate_video_directly(
     request: VideoDirectRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_licensed_user),
 ):
     """Generate video from audio + image reference."""
     replicate_service = ReplicateService()
