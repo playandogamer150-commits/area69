@@ -4,6 +4,8 @@
 
 ### Environment Setup
 - [ ] All environment variables configured
+- [ ] `CORS_ORIGINS`, `BACKEND_PUBLIC_URL`, `INTERNAL_API_BASE_URL` and `STORAGE_PATH` reviewed
+- [ ] `ALLOWED_HOSTS`, `ENABLE_API_DOCS` and `LOG_LEVEL` reviewed
 - [ ] API credentials tested (Replicate, Fal.ai, R2)
 - [ ] Database migrations executed
 - [ ] SSL certificates configured
@@ -14,6 +16,8 @@
 - [ ] Rate limiting enabled
 - [ ] Content moderation enabled
 - [ ] HTTPS configured
+- [ ] Security headers configured on frontend hosting
+- [ ] Backend hosts restricted to real production domains
 
 ### Testing
 - [ ] Unit tests passing
@@ -42,6 +46,7 @@ docker-compose -f docker-compose.prod.yml ps
 - [ ] Redis cache working
 - [ ] Celery workers processing tasks
 - [ ] Health checks passing
+- [ ] Docker/hosting health checks configured
 
 ## Post-Deploy
 

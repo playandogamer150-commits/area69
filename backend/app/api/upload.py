@@ -4,9 +4,11 @@ from typing import List
 import uuid
 from pathlib import Path
 import logging
+import re
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 
+from app.core.config import settings
 from app.core.security import get_current_licensed_user
 from app.models.database import User
 
@@ -19,6 +21,21 @@ MAX_PHOTOS = 20
 MAX_EDIT_IMAGES = 6
 
 ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+SAFE_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9_-]+")
+
+
+def sanitize_storage_segment(value: str, field_name: str) -> str:
+    normalized = SAFE_SEGMENT_RE.sub("-", value.strip()).strip("-_.")
+    if not normalized:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{field_name} invalido")
+    return normalized
+
+
+def ensure_request_user_matches_current(user_id: str, current_user: User) -> str:
+    normalized = user_id.strip()
+    if normalized != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User mismatch")
+    return normalized
 
 
 def validate_image_file(photo: UploadFile) -> None:
@@ -48,7 +65,9 @@ async def upload_reference_photos(
     current_user: User = Depends(get_current_licensed_user),
 ):
     """Upload reference photos for LoRA training."""
-    logger.info(f"Upload received: userId={userId}, modelName={modelName}, photos={len(referencePhotos)}")
+    normalized_user_id = ensure_request_user_matches_current(userId, current_user)
+    safe_model_name = sanitize_storage_segment(modelName, "modelName")
+    logger.info(f"Upload received: userId={normalized_user_id}, modelName={safe_model_name}, photos={len(referencePhotos)}")
 
     if len(referencePhotos) < MIN_PHOTOS:
         raise HTTPException(
@@ -65,7 +84,7 @@ async def upload_reference_photos(
     for photo in referencePhotos:
         validate_image_file(photo)
 
-    upload_dir = Path(f"/app/storage/{userId}/{modelName}")
+    upload_dir = settings.storage_path / normalized_user_id / safe_model_name
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
@@ -78,7 +97,7 @@ async def upload_reference_photos(
         with open(file_path, "wb") as buffer:
             buffer.write(content)
 
-        relative_path = f"/storage/{userId}/{modelName}/{file_id}.{file_ext}"
+        relative_path = f"/storage/{normalized_user_id}/{safe_model_name}/{file_id}.{file_ext}"
         saved_files.append({
             "filename": f"{file_id}.{file_ext}",
             "path": relative_path,
@@ -92,8 +111,8 @@ async def upload_reference_photos(
         "ok": True,
         "message": f"{len(saved_files)} fotos salvas com sucesso",
         "saved": saved_files,
-        "userId": userId,
-        "modelName": modelName,
+        "userId": normalized_user_id,
+        "modelName": safe_model_name,
         "enableNsfw": enableNsfw,
         "nextStep": "Use os caminhos em 'saved' para chamar POST /api/v1/admin/lora-recovery"
     }
@@ -105,6 +124,7 @@ async def upload_edit_images(
     userId: str = Form(..., min_length=1, description="ID unico do usuario"),
     current_user: User = Depends(get_current_licensed_user),
 ):
+    normalized_user_id = ensure_request_user_matches_current(userId, current_user)
     if len(images) < 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -121,7 +141,7 @@ async def upload_edit_images(
         validate_image_file(image)
 
     batch_id = str(uuid.uuid4())
-    upload_dir = Path(f"/app/storage/{userId}/image-edits/{batch_id}")
+    upload_dir = settings.storage_path / normalized_user_id / "image-edits" / batch_id
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
@@ -133,7 +153,7 @@ async def upload_edit_images(
         with open(file_path, "wb") as buffer:
             buffer.write(content)
 
-        relative_path = f"/storage/{userId}/image-edits/{batch_id}/{file_id}.{file_ext}"
+        relative_path = f"/storage/{normalized_user_id}/image-edits/{batch_id}/{file_id}.{file_ext}"
         saved_files.append({
             "filename": f"{file_id}.{file_ext}",
             "path": relative_path,
@@ -145,6 +165,6 @@ async def upload_edit_images(
         "ok": True,
         "message": f"{len(saved_files)} imagens salvas com sucesso",
         "saved": saved_files,
-        "userId": userId,
+        "userId": normalized_user_id,
         "batchId": batch_id,
     }

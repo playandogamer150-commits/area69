@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
+from app.core.security import get_current_user
 from app.models.database import FaceSwapTask, Generation, LoRAModel, VideoTask, get_db, User
 
 router = APIRouter(prefix="/user", tags=["User"])
@@ -53,11 +55,19 @@ async def sync_lora_status(lora: LoRAModel, db: Session) -> None:
 
         logging.error(f"Error polling replicate for lora {lora.id}: {e}")
 
+def ensure_current_user_matches(user_id: str | None, current_user: User) -> User:
+    if user_id is not None and user_id.strip() not in {str(current_user.id), current_user.email}:
+        raise HTTPException(status_code=403, detail="User mismatch")
+    return current_user
+
+
 @router.get("/loras")
-async def get_user_loras(userId: str = Query(...), db: Session = Depends(get_db)):
-    user = resolve_user(userId, db)
-    if not user:
-        return []
+async def get_user_loras(
+    userId: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = ensure_current_user_matches(userId, current_user)
     
     loras = db.query(LoRAModel).filter(LoRAModel.user_id == user.id).order_by(LoRAModel.created_at.desc()).all()
     
@@ -82,10 +92,12 @@ async def get_user_loras(userId: str = Query(...), db: Session = Depends(get_db)
     ]
 
 @router.get("/loras/{lora_id}")
-async def get_lora_status(lora_id: str, db: Session = Depends(get_db)):
+async def get_lora_status(lora_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     lora = db.query(LoRAModel).filter(LoRAModel.id == int(lora_id)).first()
     if not lora:
         return {}
+    if lora.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Resource does not belong to the current user")
         
     await sync_lora_status(lora, db)
 
@@ -103,18 +115,12 @@ async def get_lora_status(lora_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/stats")
-async def get_user_stats(userId: str = Query(...), db: Session = Depends(get_db)):
-    user = resolve_user(userId, db)
-    if not user:
-        return {
-            "identities": 0,
-            "imagesToday": 0,
-            "generatedImagesToday": 0,
-            "editedImagesToday": 0,
-            "faceSwapsToday": 0,
-            "videosToday": 0,
-            "recentActivity": [],
-        }
+async def get_user_stats(
+    userId: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = ensure_current_user_matches(userId, current_user)
 
     today = datetime.now(timezone.utc).date()
 
@@ -175,17 +181,3 @@ async def get_user_stats(userId: str = Query(...), db: Session = Depends(get_db)
         "videosToday": len(videos_today),
         "recentActivity": recent_activity[:10],
     }
-def resolve_user(user_id_value: str, db: Session) -> User | None:
-    user = None
-    try:
-        user = db.query(User).filter(User.id == int(user_id_value)).first()
-    except (TypeError, ValueError):
-        user = None
-    if user:
-        return user
-    if "@" in user_id_value:
-        user = db.query(User).filter(User.email == user_id_value).first()
-        if user:
-            return user
-    email = f"user_{user_id_value}@example.com"
-    return db.query(User).filter(User.email == email).first()

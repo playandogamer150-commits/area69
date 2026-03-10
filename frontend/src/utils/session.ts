@@ -34,7 +34,7 @@ export function getAccessToken() {
 export function getCurrentUser(): SessionUser | null {
   try {
     const raw = localStorage.getItem(USER_KEY)
-    return raw ? JSON.parse(raw) : null
+    return raw ? (JSON.parse(raw) as SessionUser) : null
   } catch {
     return null
   }

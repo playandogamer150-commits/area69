@@ -12,7 +12,7 @@ export interface ImageEditHistoryItem {
 export function loadImageEditHistory(): ImageEditHistoryItem[] {
   try {
     const raw = localStorage.getItem(IMAGE_EDIT_HISTORY_STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
+    return raw ? (JSON.parse(raw) as ImageEditHistoryItem[]) : []
   } catch {
     return []
   }

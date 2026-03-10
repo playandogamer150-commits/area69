@@ -8,6 +8,7 @@ import { authService } from '@/services/auth.service'
 import { paymentsService } from '@/services/payments.service'
 import { getCurrentUser, updateCurrentUser, type SessionUser } from '@/utils/session'
 import type { PixCharge } from '@/types/api.types'
+import { getApiErrorMessage } from '@/utils/api-error'
 
 export function Profile() {
   const { toast } = useToast()
@@ -44,8 +45,8 @@ export function Profile() {
       updateCurrentUser(updated)
       setUser(updated)
       toast({ title: 'Sucesso', description: 'Perfil atualizado!' })
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.response?.data?.detail || 'Falha ao atualizar perfil', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao atualizar perfil'), variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -62,8 +63,8 @@ export function Profile() {
       setUser(response.user)
       setLicenseKey('')
       toast({ title: 'Licenca ativada', description: response.message })
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.response?.data?.detail || 'Falha ao ativar licenca', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao ativar licenca'), variant: 'destructive' })
     } finally {
       setActivating(false)
     }
@@ -75,8 +76,8 @@ export function Profile() {
       const charge = await paymentsService.createPixCharge()
       setPixCharge(charge)
       toast({ title: 'PIX gerado', description: 'Use o codigo copia e cola para concluir o pagamento.' })
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.response?.data?.detail || 'Falha ao gerar cobranca Pix', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao gerar cobranca Pix'), variant: 'destructive' })
     } finally {
       setLoadingPix(false)
     }

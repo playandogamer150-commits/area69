@@ -11,6 +11,7 @@ import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import type { GenerationRequest, LoRAStatus } from '@/types/api.types'
 import { loraService } from '@/services/lora.service'
 import { generateService } from '@/services/generate.service'
+import { getApiErrorMessage } from '@/utils/api-error'
 
 const defaultGenerationValues: Omit<GenerationRequest, 'prompt' | 'negativePrompt' | 'loraName'> = {
   cumEffect: 0.5,
@@ -113,9 +114,9 @@ export function ImageGeneration() {
         setIsGenerating(false)
         toast({ title: 'Erro', description: 'Resposta inválida do servidor', variant: 'destructive' })
       }
-    } catch (error: any) {
+    } catch (error) {
       setIsGenerating(false)
-      const errDetail = error.response?.data?.detail || error.message || 'Falha ao gerar imagem'
+      const errDetail = getApiErrorMessage(error, 'Falha ao gerar imagem')
       toast({ title: 'Erro', description: errDetail, variant: 'destructive' })
     }
   }

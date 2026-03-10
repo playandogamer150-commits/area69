@@ -16,11 +16,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from app.core.config import Settings
+from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
-settings = Settings()
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker

@@ -7,14 +7,18 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/useToast'
 import { authService } from '@/services/auth.service'
+import { getApiErrorMessage } from '@/utils/api-error'
 
 export function Login() {
   const location = useLocation()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const defaultMode = useMemo(() => new URLSearchParams(location.search).get('mode') === 'register' ? 'register' : 'login', [location.search])
+  const defaultMode = useMemo<'login' | 'register'>(
+    () => (new URLSearchParams(location.search).get('mode') === 'register' ? 'register' : 'login'),
+    [location.search],
+  )
 
-  const [mode, setMode] = useState<'login' | 'register'>(defaultMode as 'login' | 'register')
+  const [mode, setMode] = useState<'login' | 'register'>(defaultMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,8 +32,8 @@ export function Login() {
       await authService.login(email, password)
       toast({ title: 'Sucesso', description: 'Login realizado com sucesso!' })
       navigate('/dashboard')
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.response?.data?.detail || 'Falha ao fazer login', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao fazer login'), variant: 'destructive' })
     } finally {
       setIsLoading(false)
     }
@@ -58,8 +62,8 @@ export function Login() {
       await authService.register(trimmedEmail, password, trimmedName)
       toast({ title: 'Conta criada', description: 'Conta criada com sucesso. Agora ative sua licenca no perfil.' })
       navigate('/profile')
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.response?.data?.detail || 'Falha ao criar conta', variant: 'destructive' })
+    } catch (error) {
+      toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao criar conta'), variant: 'destructive' })
     } finally {
       setIsLoading(false)
     }
