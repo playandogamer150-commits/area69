@@ -1,4 +1,4 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -7,19 +7,19 @@ const angles = [
     id: 1,
     src: "https://i.imgur.com/PAOJdVl.jpeg",
     label: "Front View",
-    angle: "0Â°",
+    angle: "0°",
   },
   {
     id: 2,
     src: "https://i.imgur.com/jA3rpgk.jpeg",
     label: "Side Angle",
-    angle: "45Â°",
+    angle: "45°",
   },
   {
     id: 3,
     src: "https://i.imgur.com/gS6dqLP.jpeg",
     label: "Dynamic Pose",
-    angle: "90Â°",
+    angle: "90°",
   },
 ];
 
@@ -47,19 +47,19 @@ export function AnglesGallery() {
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-red-600/30 bg-red-600/10 text-red-400 text-sm mb-8 tracking-wider uppercase font-['Space_Grotesk',sans-serif]">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            Controle Total de CÃ¢mera
+            Controle Total de Câmera
           </div>
 
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 font-['Space_Grotesk',sans-serif]">
-            Um cenÃ¡rio. <span className="text-red-600">Infinitos Ã¢ngulos.</span>
+            Um cenário. <span className="text-red-600">Infinitos ângulos.</span>
           </h2>
 
           <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto mb-4">
-            Com o sistema de <span className="text-white font-medium">Ã‚NGULOS</span> da AREA 69, vocÃª controla a cÃ¢mera como um diretor de cinema. Mesmo cenÃ¡rio, mesma modelo â€” resultados completamente diferentes a cada Ã¢ngulo.
+            Com o sistema de <span className="text-white font-medium">ÂNGULOS</span> da AREA 69, você controla a câmera como um diretor de cinema. Mesmo cenário, mesma modelo — resultados completamente diferentes a cada ângulo.
           </p>
 
           <p className="text-sm text-gray-500 max-w-xl mx-auto">
-            Gire, ajuste e explore cada perspectiva. Crie sets fotogrÃ¡ficos completos sem sair da plataforma.
+            Gire, ajuste e explore cada perspectiva. Crie sets fotográficos completos sem sair da plataforma.
           </p>
         </motion.div>
 
@@ -122,7 +122,7 @@ export function AnglesGallery() {
               >
                 <img
                   src={angle.src}
-                  alt={`Ã‚ngulo ${angle.angle} â€” AREA 69 AI`}
+                  alt={`Ângulo ${angle.angle} — AREA 69 AI`}
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
 
@@ -132,7 +132,7 @@ export function AnglesGallery() {
                 {/* Bottom gradient */}
                 <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none z-10" />
 
-                {/* Angle badge â€” top left */}
+                {/* Angle badge — top left */}
                 <div className="absolute top-4 left-4 z-20">
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/70 border border-white/10 backdrop-blur-xl shadow-[0_4px_12px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]">
                     <svg className="w-3.5 h-3.5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
@@ -145,11 +145,11 @@ export function AnglesGallery() {
                   </div>
                 </div>
 
-                {/* Label â€” bottom */}
+                {/* Label — bottom */}
                 <div className="absolute bottom-5 left-5 right-5 z-20 flex items-end justify-between">
                   <div>
                     <span className="block text-xs tracking-[0.2em] uppercase text-red-400/80 font-['Space_Grotesk',sans-serif] mb-1">
-                      Ã‚ngulo
+                      Ângulo
                     </span>
                     <span className="block text-sm text-white font-medium font-['Space_Grotesk',sans-serif]">
                       {angle.label}
@@ -186,19 +186,19 @@ export function AnglesGallery() {
                 <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
               </svg>
               <span>
-                <span className="text-white font-medium">+50 Ã¢ngulos</span> disponÃ­veis
+                <span className="text-white font-medium">+50 ângulos</span> disponíveis
               </span>
             </div>
             <div className="w-px h-5 bg-white/10" />
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              CenÃ¡rios ilimitados
+              Cenários ilimitados
             </div>
           </div>
 
           <div>
             <Link to="/auth" className="px-8 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all duration-300 font-['Space_Grotesk',sans-serif] font-semibold tracking-wide shadow-[0_4px_15px_rgba(220,38,38,0.4),0_0_60px_rgba(220,38,38,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_30px_rgba(220,38,38,0.5),0_0_80px_rgba(220,38,38,0.15),inset_0_1px_0_rgba(255,255,255,0.15)] hover:-translate-y-0.5">
-              Explorar Todos os Ã‚ngulos
+              Explorar Todos os Ângulos
             </Link>
           </div>
         </motion.div>

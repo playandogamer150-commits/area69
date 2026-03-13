@@ -1,25 +1,25 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import { User, Image, Edit, LayoutDashboard } from "lucide-react";
 
 const features = [
   {
     icon: User,
-    title: "CriaÃ§Ã£o de Identidade",
-    description: "Defina caracterÃ­sticas, estilo e personalidade da sua modelo virtual.",
+    title: "Criação de Identidade",
+    description: "Defina características, estilo e personalidade da sua modelo virtual.",
   },
   {
     icon: Image,
-    title: "GeraÃ§Ã£o de Imagem",
+    title: "Geração de Imagem",
     description: "Prompts simples transformados em imagens ultra-realistas instantaneamente.",
   },
   {
     icon: Edit,
-    title: "EdiÃ§Ã£o AvanÃ§ada",
-    description: "Refine, ajuste e personalize cada detalhe das suas criaÃ§Ãµes.",
+    title: "Edição Avançada",
+    description: "Refine, ajuste e personalize cada detalhe das suas criações.",
   },
   {
     icon: LayoutDashboard,
-    title: "Ãrea do UsuÃ¡rio",
+    title: "Área do Usuário",
     description: "Gerencie tudo em um dashboard premium e intuitivo.",
   },
 ];
@@ -44,10 +44,10 @@ export function ProductDemo() {
         >
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6">
             Software premium.<br />
-            <span className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]">ExperiÃªncia real.</span>
+            <span className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]">Experiência real.</span>
           </h2>
           <p className="text-base sm:text-xl text-gray-300 max-w-2xl mx-auto">
-            Uma plataforma completa para criaÃ§Ã£o, ediÃ§Ã£o e gestÃ£o do seu conteÃºdo.
+            Uma plataforma completa para criação, edição e gestão do seu conteúdo.
           </p>
         </motion.div>
 

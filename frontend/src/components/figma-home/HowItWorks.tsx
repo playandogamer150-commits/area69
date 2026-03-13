@@ -1,25 +1,25 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 
 const steps = [
   {
     number: "01",
-    title: "Acesse o CÃ­rculo Restrito",
+    title: "Acesse o Círculo Restrito",
     description:
-      "Enquanto outros esperam na fila, vocÃª entra direto. Cadastro blindado, sem exposiÃ§Ã£o, sem julgamento. Apenas os escolhidos operam aqui.",
+      "Enquanto outros esperam na fila, você entra direto. Cadastro blindado, sem exposição, sem julgamento. Apenas os escolhidos operam aqui.",
     badge: "ACESSO LIMITADO",
   },
   {
     number: "02",
-    title: "Crie Sua MÃ¡quina de Desejo",
+    title: "Crie Sua Máquina de Desejo",
     description:
-      "Modele personagens Ãºnicos que ninguÃ©m mais terÃ¡. Sua identidade visual exclusiva vira um ativo digital â€” quanto antes criar, mais territÃ³rio vocÃª domina.",
+      "Modele personagens únicos que ninguém mais terá. Sua identidade visual exclusiva vira um ativo digital — quanto antes criar, mais território você domina.",
     badge: "VANTAGEM COMPETITIVA",
   },
   {
     number: "03",
     title: "Monetize Enquanto Outros Assistem",
     description:
-      "Criadores da primeira leva jÃ¡ estÃ£o faturando. A janela estÃ¡ aberta agora â€” mas cada vaga preenchida Ã© uma a menos pra quem ficou de fora.",
+      "Criadores da primeira leva já estão faturando. A janela está aberta agora — mas cada vaga preenchida é uma a menos pra quem ficou de fora.",
     badge: "RECEITA RECORRENTE",
   },
 ];
@@ -76,16 +76,16 @@ export function HowItWorks() {
         >
           <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full border border-red-600/30 bg-red-600/10 text-red-400 text-xs sm:text-sm mb-6 sm:mb-8 tracking-wider uppercase">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            MÃ©todo validado por +2.400 criadores
+            Método validado por +2.400 criadores
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 font-['Space_Grotesk',sans-serif]">
-            TrÃªs passos para sair do zero.
+            Três passos para sair do zero.
             <br />
             <span className="text-red-600">Um caminho sem volta.</span>
           </h2>
           <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto">
-            Quem entrou primeiro jÃ¡ estÃ¡ colhendo resultados. O processo Ã© simples
-            â€” mas a vantagem Ã© de quem age agora.
+            Quem entrou primeiro já está colhendo resultados. O processo é simples
+            — mas a vantagem é de quem age agora.
           </p>
         </motion.div>
 
@@ -107,9 +107,9 @@ export function HowItWorks() {
                 transition={{ duration: 0.6, delay: index * 0.2 }}
                 className="relative flex flex-col"
               >
-                {/* Card â€” flex-1 forces equal height */}
+                {/* Card — flex-1 forces equal height */}
                 <div className="relative flex-1 flex flex-col rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-8 pt-20 overflow-hidden transition-all duration-500 hover:border-red-600/25 hover:bg-white/[0.05] group shadow-[0_4px_25px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03)_inset,0_1px_0_rgba(255,255,255,0.06)_inset] hover:shadow-[0_12px_45px_rgba(0,0,0,0.6),0_0_60px_rgba(220,38,38,0.07),0_0_0_1px_rgba(220,38,38,0.1)_inset,0_1px_0_rgba(255,255,255,0.08)_inset] hover:-translate-y-1 backdrop-blur-sm">
-                  {/* Large background number â€” watermark */}
+                  {/* Large background number — watermark */}
                   <div
                     className="absolute -top-4 -left-1 font-['Space_Grotesk',sans-serif] font-bold text-[120px] leading-none text-transparent select-none pointer-events-none"
                     style={{
@@ -140,7 +140,7 @@ export function HowItWorks() {
                     {step.title}
                   </h3>
 
-                  {/* Description â€” flex-1 pushes to fill remaining space */}
+                  {/* Description — flex-1 pushes to fill remaining space */}
                   <p className="relative z-10 flex-1 text-[15px] text-gray-400 leading-relaxed">
                     {step.description}
                   </p>
@@ -181,7 +181,7 @@ export function HowItWorks() {
                   <img
                     key={i}
                     src={src}
-                    alt={`UsuÃ¡rio ${i + 1}`}
+                    alt={`Usuário ${i + 1}`}
                     className="w-9 h-9 rounded-full border-2 border-black object-cover"
                   />
                 ))}
@@ -194,7 +194,7 @@ export function HowItWorks() {
             </div>
             <div className="hidden sm:block w-px h-6 bg-white/20" />
             <span className="text-sm text-gray-400">
-              Tempo mÃ©dio para primeiro resultado:{" "}
+              Tempo médio para primeiro resultado:{" "}
               <span className="text-red-400 font-semibold">menos de 24h</span>
             </span>
           </div>
