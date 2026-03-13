@@ -1,16 +1,16 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import { User, Image, Wand2, TrendingUp } from "lucide-react";
 
 const benefits = [
   {
     icon: User,
-    title: "Crie sua prÃ³pria modelo virtual",
-    description: "Defina identidade, estilo e caracterÃ­sticas Ãºnicas. Controle total sobre sua criaÃ§Ã£o.",
+    title: "Crie sua própria modelo virtual",
+    description: "Defina identidade, estilo e características únicas. Controle total sobre sua criação.",
   },
   {
     icon: Image,
-    title: "Gere imagens explÃ­citas com facilidade",
-    description: "Prompts simples. Resultados ultra-realistas. Tecnologia de ponta em suas mÃ£os.",
+    title: "Gere imagens explícitas com facilidade",
+    description: "Prompts simples. Resultados ultra-realistas. Tecnologia de ponta em suas mãos.",
   },
   {
     icon: Wand2,
@@ -19,8 +19,8 @@ const benefits = [
   },
   {
     icon: TrendingUp,
-    title: "Transforme em monetizaÃ§Ã£o",
-    description: "Use seu conteÃºdo para criar operaÃ§Ãµes digitais rentÃ¡veis e exclusivas.",
+    title: "Transforme em monetização",
+    description: "Use seu conteúdo para criar operações digitais rentáveis e exclusivas.",
   },
 ];
 
@@ -44,10 +44,10 @@ export function Benefits() {
         >
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6">
             Poder criativo.<br />
-            <span className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]">Identidade prÃ³pria.</span>
+            <span className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]">Identidade própria.</span>
           </h2>
           <p className="text-base sm:text-xl text-gray-300 max-w-2xl mx-auto">
-            Tudo que vocÃª precisa para criar, controlar e monetizar conteÃºdo premium.
+            Tudo que você precisa para criar, controlar e monetizar conteúdo premium.
           </p>
         </motion.div>
 

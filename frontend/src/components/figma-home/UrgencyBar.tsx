@@ -1,4 +1,4 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 
 export function UrgencyBar() {
@@ -39,7 +39,7 @@ export function UrgencyBar() {
 
           {/* Main text */}
           <p className="text-sm sm:text-lg font-semibold text-white tracking-wide">
-            Brilhem os fracos â€”{" "}
+            Brilhem os fracos —{" "}
             <span className="italic font-normal opacity-90">mas quem se dignifica a clicar</span>{" "}
             <Link
               to="/auth"
@@ -47,7 +47,7 @@ export function UrgencyBar() {
             >
               AQUI
             </Link>{" "}
-            <span className="italic font-normal opacity-90">amarra a prÃ³pria fortuna.</span>
+            <span className="italic font-normal opacity-90">amarra a própria fortuna.</span>
           </p>
 
           {/* Arrow CTA */}

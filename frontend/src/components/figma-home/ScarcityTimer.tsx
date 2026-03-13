@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -163,7 +163,7 @@ export function ScarcityTimer() {
               whileTap={{ scale: 0.97 }}
               className="bg-red-600 hover:bg-red-500 text-white text-[10px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 rounded-full uppercase tracking-wider transition-all flex-shrink-0 shadow-[0_2px_10px_rgba(220,38,38,0.4),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_4px_20px_rgba(220,38,38,0.5)]"
             >
-              Garantir Agora â†’
+              Garantir Agora →
             </motion.div>
           </Link>
         </div>

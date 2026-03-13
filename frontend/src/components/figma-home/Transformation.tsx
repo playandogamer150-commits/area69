@@ -1,4 +1,4 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import { Crown, Zap, Lock } from "lucide-react";
 
 export function Transformation() {
@@ -42,8 +42,8 @@ export function Transformation() {
             transition={{ delay: 0.3, duration: 0.8 }}
             className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-6 sm:mb-8 leading-tight"
           >
-            NÃ£o Ã© apenas uma ferramenta.<br />
-            Ã‰ uma <span className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]">nova forma de criar</span>.
+            Não é apenas uma ferramenta.<br />
+            É uma <span className="text-red-600 drop-shadow-[0_0_30px_rgba(220,38,38,0.3)]">nova forma de criar</span>.
           </motion.h2>
 
           <motion.p
@@ -53,8 +53,8 @@ export function Transformation() {
             transition={{ delay: 0.4, duration: 0.8 }}
             className="text-base sm:text-xl text-gray-300 mb-8 sm:mb-12 leading-relaxed max-w-3xl mx-auto"
           >
-            AREA 69 AI entrega poder criativo, identidade prÃ³pria e potencial de monetizaÃ§Ã£o.
-            Uma plataforma privada que coloca vocÃª no controle do seu conteÃºdo e do seu futuro digital.
+            AREA 69 AI entrega poder criativo, identidade própria e potencial de monetização.
+            Uma plataforma privada que coloca você no controle do seu conteúdo e do seu futuro digital.
           </motion.p>
 
           {/* Feature highlights */}
@@ -68,21 +68,21 @@ export function Transformation() {
             <div className="group relative p-8 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-neutral-900/40 to-black/40 backdrop-blur-sm transition-all duration-500 hover:border-white/15 hover:-translate-y-1 shadow-[0_4px_25px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_50px_rgba(220,38,38,0.05),inset_0_1px_0_rgba(255,255,255,0.08)]">
               <Lock className="w-12 h-12 text-red-500 mb-4 mx-auto drop-shadow-[0_0_10px_rgba(220,38,38,0.3)]" />
               <h3 className="text-2xl font-bold mb-3">Exclusividade</h3>
-              <p className="text-gray-400">Acesso restrito. Comunidade selecionada. ExperiÃªncia premium.</p>
+              <p className="text-gray-400">Acesso restrito. Comunidade selecionada. Experiência premium.</p>
               <div className="absolute -inset-1 rounded-3xl bg-white/[0.01] opacity-0 group-hover:opacity-100 transition-opacity blur-xl -z-10" />
             </div>
 
             <div className="group relative p-8 rounded-2xl border border-red-600/30 bg-gradient-to-b from-red-950/30 to-black/40 backdrop-blur-sm transition-all duration-500 hover:border-red-600/40 hover:-translate-y-1 shadow-[0_4px_25px_rgba(0,0,0,0.5),0_0_40px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_70px_rgba(220,38,38,0.12),inset_0_1px_0_rgba(255,255,255,0.08)]">
               <Zap className="w-12 h-12 text-red-500 mb-4 mx-auto drop-shadow-[0_0_10px_rgba(220,38,38,0.3)]" />
               <h3 className="text-2xl font-bold mb-3">Poder</h3>
-              <p className="text-gray-400">Controle total. CriaÃ§Ã£o ilimitada. Tecnologia de ponta.</p>
+              <p className="text-gray-400">Controle total. Criação ilimitada. Tecnologia de ponta.</p>
               <div className="absolute -inset-1 rounded-3xl bg-red-600/[0.03] opacity-0 group-hover:opacity-100 transition-opacity blur-xl -z-10" />
             </div>
 
             <div className="group relative p-8 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-neutral-900/40 to-black/40 backdrop-blur-sm transition-all duration-500 hover:border-white/15 hover:-translate-y-1 shadow-[0_4px_25px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.6),0_0_50px_rgba(220,38,38,0.05),inset_0_1px_0_rgba(255,255,255,0.08)]">
               <Crown className="w-12 h-12 text-red-500 mb-4 mx-auto drop-shadow-[0_0_10px_rgba(220,38,38,0.3)]" />
               <h3 className="text-2xl font-bold mb-3">Oportunidade</h3>
-              <p className="text-gray-400">Monetize seu conteÃºdo. Construa sua operaÃ§Ã£o digital.</p>
+              <p className="text-gray-400">Monetize seu conteúdo. Construa sua operação digital.</p>
               <div className="absolute -inset-1 rounded-3xl bg-white/[0.01] opacity-0 group-hover:opacity-100 transition-opacity blur-xl -z-10" />
             </div>
           </motion.div>

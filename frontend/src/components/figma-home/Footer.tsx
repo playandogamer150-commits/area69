@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export function Footer() {
   return (
@@ -53,7 +53,7 @@ export function Footer() {
 
           {/* Copyright */}
           <div className="text-xs sm:text-sm text-gray-500 text-center">
-            Â© 2026 AREA 69 AI. Todos os direitos reservados.
+            © 2026 AREA 69 AI. Todos os direitos reservados.
           </div>
         </div>
       </div>

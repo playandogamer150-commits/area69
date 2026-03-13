@@ -1,4 +1,4 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import {
   Accordion,
   AccordionContent,
@@ -9,23 +9,23 @@ import {
 const faqs = [
   {
     question: "Preciso saber usar IA?",
-    answer: "NÃ£o. A AREA 69 AI foi desenvolvida para ser intuitiva e acessÃ­vel. VocÃª sÃ³ precisa escrever prompts simples e a plataforma cuida de todo o resto. Nossa tecnologia transforma suas ideias em resultados profissionais.",
+    answer: "Não. A AREA 69 AI foi desenvolvida para ser intuitiva e acessível. Você só precisa escrever prompts simples e a plataforma cuida de todo o resto. Nossa tecnologia transforma suas ideias em resultados profissionais.",
   },
   {
-    question: "Posso criar minha prÃ³pria modelo?",
-    answer: "Sim, absolutamente. VocÃª tem controle total sobre a criaÃ§Ã£o da sua modelo virtual. Defina aparÃªncia, estilo, caracterÃ­sticas e identidade visual. Sua modelo serÃ¡ Ãºnica e exclusivamente sua.",
+    question: "Posso criar minha própria modelo?",
+    answer: "Sim, absolutamente. Você tem controle total sobre a criação da sua modelo virtual. Defina aparência, estilo, características e identidade visual. Sua modelo será única e exclusivamente sua.",
   },
   {
-    question: "A plataforma Ã© privada?",
-    answer: "100% privada. Seu conteÃºdo, suas criaÃ§Ãµes e suas operaÃ§Ãµes ficam totalmente protegidas. AREA 69 AI Ã© uma plataforma fechada com acesso exclusivo apenas para membros.",
+    question: "A plataforma é privada?",
+    answer: "100% privada. Seu conteúdo, suas criações e suas operações ficam totalmente protegidas. AREA 69 AI é uma plataforma fechada com acesso exclusivo apenas para membros.",
   },
   {
     question: "Como funciona o acesso?",
-    answer: "Crie sua conta, ative sua licenÃ§a e comece a usar imediatamente. O processo Ã© simples, rÃ¡pido e totalmente privado. VocÃª recebe acesso completo Ã  plataforma.",
+    answer: "Crie sua conta, ative sua licença e comece a usar imediatamente. O processo é simples, rápido e totalmente privado. Você recebe acesso completo à plataforma.",
   },
   {
-    question: "Preciso ter experiÃªncia?",
-    answer: "NÃ£o Ã© necessÃ¡ria nenhuma experiÃªncia prÃ©via. Nossa interface foi projetada para ser poderosa e ao mesmo tempo acessÃ­vel. Desde iniciantes atÃ© profissionais, todos conseguem criar conteÃºdo de alto nÃ­vel.",
+    question: "Preciso ter experiência?",
+    answer: "Não é necessária nenhuma experiência prévia. Nossa interface foi projetada para ser poderosa e ao mesmo tempo acessível. Desde iniciantes até profissionais, todos conseguem criar conteúdo de alto nível.",
   },
 ];
 
@@ -50,7 +50,7 @@ export function FAQ() {
             Perguntas <span className="text-red-600">frequentes</span>
           </h2>
           <p className="text-base sm:text-xl text-gray-300">
-            Tudo que vocÃª precisa saber sobre a AREA 69 AI
+            Tudo que você precisa saber sobre a AREA 69 AI
           </p>
         </motion.div>
 

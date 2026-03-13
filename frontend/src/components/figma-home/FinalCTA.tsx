@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "./ui/button";
@@ -37,7 +37,7 @@ export function FinalCTA() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-red-600/50 bg-red-950/40 backdrop-blur-md mb-12 shadow-[0_4px_20px_rgba(220,38,38,0.15),inset_0_1px_0_rgba(255,255,255,0.06)]"
           >
             <Sparkles className="w-5 h-5 text-red-500 drop-shadow-[0_0_6px_rgba(220,38,38,0.5)]" />
-            <span className="text-sm font-medium">Acesso Exclusivo DisponÃ­vel</span>
+            <span className="text-sm font-medium">Acesso Exclusivo Disponível</span>
           </motion.div>
 
           {/* Main headline */}
@@ -60,7 +60,7 @@ export function FinalCTA() {
             transition={{ delay: 0.4 }}
             className="text-lg sm:text-2xl text-gray-300 mb-8 sm:mb-12 max-w-3xl mx-auto leading-relaxed"
           >
-            Entre agora para AREA 69 AI. Crie sua modelo, gere conteÃºdo premium e transforme isso em uma operaÃ§Ã£o digital poderosa.
+            Entre agora para AREA 69 AI. Crie sua modelo, gere conteúdo premium e transforme isso em uma operação digital poderosa.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -86,7 +86,7 @@ export function FinalCTA() {
                 variant="outline"
                 className="border-white/20 hover:bg-white/5 text-white px-8 sm:px-12 py-6 sm:py-8 text-base sm:text-xl h-auto font-['Space_Grotesk',sans-serif] font-semibold tracking-wide shadow-[0_4px_20px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] hover:shadow-[0_6px_30px_rgba(0,0,0,0.6),0_0_40px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.12)] transition-all hover:-translate-y-0.5 backdrop-blur-sm"
               >
-                JÃ¡ Tenho Conta
+                Já Tenho Conta
               </Button>
             </Link>
           </motion.div>

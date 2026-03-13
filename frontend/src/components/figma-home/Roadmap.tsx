@@ -1,4 +1,4 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import { Layers, Video, Film, Users, GraduationCap, Boxes } from "lucide-react";
 
 const roadmapItems = [
@@ -9,18 +9,18 @@ const roadmapItems = [
   },
   {
     icon: Video,
-    title: "VÃ­deos",
-    description: "GeraÃ§Ã£o de vÃ­deo com IA",
+    title: "Vídeos",
+    description: "Geração de vídeo com IA",
   },
   {
     icon: Film,
-    title: "EdiÃ§Ã£o de VÃ­deo",
-    description: "Suite completa de ediÃ§Ã£o",
+    title: "Edição de Vídeo",
+    description: "Suite completa de edição",
   },
   {
     icon: Users,
     title: "Afiliados",
-    description: "Programa de afiliaÃ§Ã£o premium",
+    description: "Programa de afiliação premium",
   },
   {
     icon: GraduationCap,
@@ -29,8 +29,8 @@ const roadmapItems = [
   },
   {
     icon: Boxes,
-    title: "ExpansÃ£o do Ecossistema",
-    description: "Novas ferramentas e integraÃ§Ãµes",
+    title: "Expansão do Ecossistema",
+    description: "Novas ferramentas e integrações",
   },
 ];
 
@@ -59,7 +59,7 @@ export function Roadmap() {
             O futuro da <span className="text-red-600">AREA 69</span>
           </h2>
           <p className="text-base sm:text-xl text-gray-300 max-w-2xl mx-auto">
-            Uma visÃ£o de expansÃ£o contÃ­nua. Novas funcionalidades premium que ampliam ainda mais seu poder criativo.
+            Uma visão de expansão contínua. Novas funcionalidades premium que ampliam ainda mais seu poder criativo.
           </p>
         </motion.div>
 
@@ -86,7 +86,7 @@ export function Roadmap() {
                 {/* Coming soon badge */}
                 <div className="absolute top-4 right-4">
                   <span className="text-xs px-3 py-1 rounded-full bg-red-950/40 border border-red-600/20 text-red-400 shadow-[0_2px_8px_rgba(220,38,38,0.08)]">
-                    IncluÃ­do
+                    Incluído
                   </span>
                 </div>
 
@@ -105,7 +105,7 @@ export function Roadmap() {
           className="text-center mt-16"
         >
           <p className="text-gray-400">
-            E muito mais por vir. A evoluÃ§Ã£o nunca para.
+            E muito mais por vir. A evolução nunca para.
           </p>
         </motion.div>
       </div>

@@ -1,4 +1,4 @@
-﻿import { motion } from "motion/react";
+import { motion } from "motion/react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 
@@ -122,7 +122,7 @@ function ComparisonSlider({
         {/* After image (full background) */}
         <img
           src={after}
-          alt="Depois â€” AREA 69 AI"
+          alt="Depois — AREA 69 AI"
           className="absolute inset-0 w-full h-full object-cover"
           draggable={false}
         />
@@ -242,11 +242,11 @@ export function BeforeAfterGallery() {
             Arraste para comparar
           </div>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 font-['Space_Grotesk',sans-serif]">
-            Veja a diferenÃ§a com{" "}
-            <span className="text-red-600">seus prÃ³prios olhos.</span>
+            Veja a diferença com{" "}
+            <span className="text-red-600">seus próprios olhos.</span>
           </h2>
           <p className="text-base sm:text-lg text-gray-400 max-w-2xl mx-auto">
-            De um prompt bÃ¡sico para uma criaÃ§Ã£o ultra-realista em segundos.
+            De um prompt básico para uma criação ultra-realista em segundos.
             Deslize a barra e comprove o poder da AREA 69 AI.
           </p>
         </motion.div>
@@ -263,7 +263,7 @@ export function BeforeAfterGallery() {
             <svg className="w-4 h-4 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M7 12h10M12 7l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Arraste a barra para revelar a transformaÃ§Ã£o
+            Arraste a barra para revelar a transformação
           </div>
         </motion.div>
 
