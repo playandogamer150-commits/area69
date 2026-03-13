@@ -1,84 +1,300 @@
-import { useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Star, Trash2, Download, Eye } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  ImageIcon,
+  Search,
+  SlidersHorizontal,
+  Star,
+  StarOff,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { ImageEditHistoryItem, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
+
+type FilterType = 'all' | 'favorites'
 
 export function Gallery() {
   const [items, setItems] = useState<ImageEditHistoryItem[]>([])
+  const [filter, setFilter] = useState<FilterType>('all')
+  const [search, setSearch] = useState('')
+  const [lightboxItem, setLightboxItem] = useState<ImageEditHistoryItem | null>(null)
 
   useEffect(() => {
     setItems(loadImageEditHistory())
   }, [])
 
-  const removeItem = (id: string) => {
-    const nextItems = items.filter((item) => item.id !== id)
+  const filtered = useMemo(
+    () =>
+      items.filter((item) => {
+        if (filter === 'favorites' && !item.favorite) return false
+        if (!search.trim()) return true
+        const query = search.toLowerCase()
+        return item.prompt.toLowerCase().includes(query) || new Date(item.createdAt).toLocaleString().toLowerCase().includes(query)
+      }),
+    [filter, items, search],
+  )
+
+  const persist = (nextItems: ImageEditHistoryItem[]) => {
     setItems(nextItems)
     saveImageEditHistory(nextItems)
   }
 
   const toggleFavorite = (id: string) => {
-    const nextItems = items.map((item) => item.id === id ? { ...item, favorite: !item.favorite } : item)
+    const nextItems = items.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
     nextItems.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.createdAt.localeCompare(a.createdAt))
-    setItems(nextItems)
-    saveImageEditHistory(nextItems)
+    persist(nextItems)
+    setLightboxItem((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current))
   }
 
+  const removeItem = (id: string) => {
+    const nextItems = items.filter((item) => item.id !== id)
+    persist(nextItems)
+    if (lightboxItem?.id === id) setLightboxItem(null)
+  }
+
+  const navigateLightbox = (direction: -1 | 1) => {
+    if (!lightboxItem) return
+    const currentIndex = filtered.findIndex((item) => item.id === lightboxItem.id)
+    const nextIndex = currentIndex + direction
+    if (nextIndex >= 0 && nextIndex < filtered.length) {
+      setLightboxItem(filtered[nextIndex])
+    }
+  }
+
+  const lightboxIndex = lightboxItem ? filtered.findIndex((item) => item.id === lightboxItem.id) : -1
+
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Galeria</h1>
-        <p className="text-muted-foreground">{items.length} itens</p>
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="mb-6"
+      >
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Galeria</h1>
+      </motion.div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {items.map((image) => (
-          <Card key={image.id} className="overflow-hidden group">
-            <div className="relative">
-              <img 
-                src={image.imageUrl} 
-                alt={`Generated ${image.id}`} 
-                className="w-full aspect-square object-cover"
-              />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button variant="secondary" size="icon" asChild>
-                  <a href={image.imageUrl} target="_blank" rel="noreferrer">
-                    <Eye className="w-4 h-4" />
-                  </a>
-                </Button>
-                <Button variant={image.favorite ? 'default' : 'secondary'} size="icon" onClick={() => toggleFavorite(image.id)}>
-                  <Star className={`w-4 h-4 ${image.favorite ? 'fill-current' : ''}`} />
-                </Button>
-                <Button variant="secondary" size="icon" asChild>
-                  <a href={image.imageUrl} target="_blank" rel="noreferrer">
-                    <Download className="w-4 h-4" />
-                  </a>
-                </Button>
-                <Button variant="destructive" size="icon" onClick={() => removeItem(image.id)}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-              {image.favorite && (
-                <div className="absolute top-2 left-2 rounded-full bg-black/70 p-1 text-yellow-300">
-                  <Star className="w-4 h-4 fill-current" />
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.08 }}
+        className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center"
+      >
+        <div className="relative max-w-sm flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por prompt..."
+            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-gray-600 outline-none transition-all focus:border-red-600/40 focus:bg-white/[0.06]"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          {[
+            { key: 'all', label: 'Todas', icon: SlidersHorizontal },
+            { key: 'favorites', label: 'Favoritas', icon: Star },
+          ].map((option) => (
+            <button
+              key={option.key}
+              onClick={() => setFilter(option.key as FilterType)}
+              className={`flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold tracking-wide transition-all duration-200 ${
+                filter === option.key
+                  ? 'border-red-600 bg-red-600 text-white shadow-[0_2px_12px_rgba(220,38,38,0.3),inset_0_1px_0_rgba(255,255,255,0.1)]'
+                  : 'border-white/[0.08] bg-white/[0.04] text-gray-400 hover:bg-white/[0.07] hover:text-white'
+              }`}
+            >
+              <option.icon className="h-3.5 w-3.5" />
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <span className="text-xs tracking-wide text-gray-500 sm:ml-auto">
+          {filtered.length} imagem{filtered.length !== 1 ? 'ns' : ''}
+        </span>
+      </motion.div>
+
+      {filtered.length === 0 ? (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center gap-4 py-20">
+          <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03]">
+            <ImageIcon className="h-7 w-7 text-gray-600" />
+          </div>
+          <p className="text-sm text-gray-500">
+            {filter === 'favorites' ? 'Nenhuma imagem favorita.' : 'Nenhuma imagem encontrada.'}
+          </p>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          <AnimatePresence>
+            {filtered.map((item, index) => (
+              <motion.div
+                layout
+                key={item.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
+                className="group overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[0_4px_25px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] transition-shadow duration-300 hover:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_30px_rgba(220,38,38,0.04),inset_0_1px_0_rgba(255,255,255,0.06)]"
+              >
+                <div className="relative aspect-[3/4] cursor-pointer overflow-hidden" onClick={() => setLightboxItem(item)}>
+                  <img src={item.imageUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+
+                  {item.favorite && (
+                    <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-yellow-500/30 bg-black/50 backdrop-blur-sm">
+                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 flex items-end justify-center bg-gradient-to-t from-black/80 via-black/20 to-transparent pb-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    <div className="flex gap-2">
+                      {[
+                        { icon: Eye, label: 'Visualizar', onClick: () => setLightboxItem(item), danger: false },
+                        {
+                          icon: item.favorite ? StarOff : Star,
+                          label: item.favorite ? 'Desfavoritar' : 'Favoritar',
+                          onClick: () => toggleFavorite(item.id),
+                          danger: false,
+                        },
+                        { icon: Download, label: 'Baixar', onClick: () => window.open(item.imageUrl, '_blank', 'noopener,noreferrer'), danger: false },
+                        { icon: Trash2, label: 'Remover', onClick: () => removeItem(item.id), danger: true },
+                      ].map((action) => (
+                        <button
+                          key={action.label}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            action.onClick()
+                          }}
+                          title={action.label}
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl border backdrop-blur-md transition-all duration-200 ${
+                            action.danger
+                              ? 'border-red-500/40 bg-red-600/80 text-white shadow-[0_2px_12px_rgba(220,38,38,0.4)] hover:bg-red-600'
+                              : 'border-white/[0.15] bg-white/10 text-white hover:bg-white/20'
+                          }`}
+                        >
+                          <action.icon className="h-4 w-4" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-            <CardContent className="p-2">
-              <p className="text-xs text-muted-foreground">{new Date(image.createdAt).toLocaleString()}</p>
-              <p className="text-xs mt-1 line-clamp-2">{image.prompt}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
-      {items.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            Nenhuma edicao salva ainda. Gere imagens na aba `Editar Imagem` para preencher a galeria.
-          </CardContent>
-        </Card>
+                <div className="p-4">
+                  <p className="mb-1.5 text-[11px] tracking-wide text-red-400/80">{new Date(item.createdAt).toLocaleString()}</p>
+                  <p className="line-clamp-2 text-xs leading-relaxed text-gray-400">{item.prompt}</p>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
       )}
+
+      <AnimatePresence>
+        {lightboxItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-xl"
+            onClick={() => setLightboxItem(null)}
+          >
+            <button
+              onClick={() => setLightboxItem(null)}
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.06] text-gray-400 transition-all hover:bg-white/[0.1] hover:text-white sm:right-6 sm:top-6"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {lightboxIndex > 0 && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation()
+                  navigateLightbox(-1)
+                }}
+                className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.06] text-gray-400 transition-all hover:bg-white/[0.1] hover:text-white sm:left-6"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+
+            {lightboxIndex < filtered.length - 1 && (
+              <button
+                onClick={(event) => {
+                  event.stopPropagation()
+                  navigateLightbox(1)
+                }}
+                className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.06] text-gray-400 transition-all hover:bg-white/[0.1] hover:text-white sm:right-6"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
+
+            <motion.div
+              key={lightboxItem.id}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              onClick={(event) => event.stopPropagation()}
+              className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-neutral-950/95 shadow-[0_8px_60px_rgba(0,0,0,0.8)]"
+            >
+              <div className="relative min-h-0 flex-1 overflow-hidden bg-black">
+                <img src={lightboxItem.imageUrl} alt="" className="max-h-[65vh] w-full object-contain" />
+              </div>
+
+              <div className="border-t border-white/[0.06] p-4 sm:p-5">
+                <div className="mb-3 flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 text-[11px] tracking-wide text-red-400/80">{new Date(lightboxItem.createdAt).toLocaleString()}</p>
+                    <p className="text-xs leading-relaxed text-gray-400">{lightboxItem.prompt}</p>
+                  </div>
+                  <span className="flex-shrink-0 text-[10px] tracking-wider text-gray-600">
+                    {lightboxIndex + 1}/{filtered.length}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => toggleFavorite(lightboxItem.id)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold tracking-wide transition-all ${
+                      lightboxItem.favorite
+                        ? 'border-yellow-500/25 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20'
+                        : 'border-white/[0.06] bg-white/[0.03] text-gray-500 hover:bg-white/[0.06] hover:text-gray-300'
+                    }`}
+                  >
+                    <Star className={`h-3 w-3 ${lightboxItem.favorite ? 'fill-yellow-400' : ''}`} />
+                    {lightboxItem.favorite ? 'Favoritada' : 'Favoritar'}
+                  </button>
+                  <button
+                    onClick={() => window.open(lightboxItem.imageUrl, '_blank', 'noopener,noreferrer')}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold tracking-wide text-gray-500 transition-all hover:bg-white/[0.06] hover:text-gray-300"
+                  >
+                    <Download className="h-3 w-3" />
+                    Baixar
+                  </button>
+                  <button
+                    onClick={() => removeItem(lightboxItem.id)}
+                    className="ml-auto flex items-center gap-1.5 rounded-lg border border-red-600/15 bg-red-600/[0.06] px-3 py-2 text-[11px] font-semibold tracking-wide text-red-400/70 transition-all hover:bg-red-600/15 hover:text-red-400"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Remover
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
