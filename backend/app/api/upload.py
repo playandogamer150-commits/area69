@@ -114,7 +114,7 @@ async def upload_reference_photos(
         "userId": normalized_user_id,
         "modelName": safe_model_name,
         "enableNsfw": enableNsfw,
-        "nextStep": "Use os caminhos em 'saved' para chamar POST /api/v1/admin/lora-recovery"
+        "nextStep": "Use os caminhos em 'saved' para chamar POST /api/v1/admin/lora-recovery e criar a identidade no Soul ID"
     }
 
 

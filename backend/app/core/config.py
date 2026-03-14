@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     # API tokens and keys
     REPLICATE_API_TOKEN: str | None = Field(default=None, env="REPLICATE_API_TOKEN")
     REPLICATE_OWNER: str | None = Field(default=None, env="REPLICATE_OWNER")
+    HIGGSFIELD_API_KEY_ID: str | None = Field(default=None, env="HIGGSFIELD_API_KEY_ID")
+    HIGGSFIELD_API_KEY_SECRET: str | None = Field(default=None, env="HIGGSFIELD_API_KEY_SECRET")
     WAVESPEED_API_KEY: str | None = Field(default=None, env="WAVESPEED_API_KEY")
     FAL_KEY: str | None = Field(default=None, env="FAL_KEY")
 

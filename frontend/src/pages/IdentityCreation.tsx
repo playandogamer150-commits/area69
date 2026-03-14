@@ -97,7 +97,7 @@ export function IdentityCreation() {
 
       toast({
         title: 'Sucesso',
-        description: 'Treinamento LoRA iniciado. Voce pode acompanhar no dashboard.',
+        description: 'Soul ID iniciado. Voce pode acompanhar o status no dashboard.',
       })
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } }
