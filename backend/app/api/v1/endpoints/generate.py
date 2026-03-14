@@ -7,6 +7,7 @@ from datetime import datetime
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.database import Generation, LoRAModel, User, get_db
@@ -136,9 +137,29 @@ async def generate_image(
     current_user: User = Depends(get_current_licensed_user),
 ):
     """Generate image with Soul Character defaults."""
-    lora = db.query(LoRAModel).filter(
-        LoRAModel.model_name == request.loraName
-    ).order_by(LoRAModel.created_at.desc()).first()
+    logger.info(
+        "[Generate] request payload: loraName=%s characterId=%s aspectRatio=%s resolution=%s resultImages=%s references=%s",
+        request.loraName,
+        request.characterId,
+        request.aspectRatio,
+        request.resolution,
+        request.resultImages,
+        len(request.referenceImageUrls),
+    )
+    lora_query = db.query(LoRAModel).filter(
+        LoRAModel.user_id == current_user.id,
+        LoRAModel.model_name == request.loraName,
+    )
+
+    if request.characterId:
+        lora_query = lora_query.filter(
+            or_(
+                LoRAModel.fal_lora_url == f"soul-id:{request.characterId}",
+                LoRAModel.fal_lora_url == request.characterId,
+            )
+        )
+
+    lora = lora_query.order_by(LoRAModel.created_at.desc()).first()
     
     if not lora:
         raise HTTPException(status_code=404, detail="LoRA not found")
