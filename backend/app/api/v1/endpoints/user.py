@@ -12,9 +12,9 @@ def map_status(status: str) -> str:
     if not status:
         return "pending"
     status_lower = status.lower()
-    if status_lower == "succeeded":
+    if status_lower in ("succeeded", "completed", "ready"):
         return "ready"
-    if status_lower in ("starting", "processing"):
+    if status_lower in ("starting", "processing", "queued", "in_progress", "not_ready"):
         return "training"
     return status_lower
 
@@ -22,6 +22,34 @@ def map_status(status: str) -> str:
 async def sync_lora_status(lora: LoRAModel, db: Session) -> None:
     if lora.status in ("succeeded", "ready", "failed", "canceled"):
         return
+
+    if lora.fal_lora_url and lora.fal_lora_url.startswith("soul-id:"):
+        from app.services.higgsfield_service import HiggsfieldService
+
+        soul_id = lora.fal_lora_url.split(":", 1)[1]
+        soul_service = HiggsfieldService()
+        try:
+            reference = await soul_service.get_soul_id(soul_id)
+            new_status = reference.get("status")
+            if not new_status:
+                return
+
+            if new_status == "completed":
+                lora.status = "ready"
+                lora.progress = 100
+            elif new_status == "failed":
+                lora.status = "failed"
+            else:
+                lora.status = new_status
+                lora.progress = 50
+
+            db.commit()
+        except Exception as e:
+            import logging
+
+            logging.error(f"Error polling Higgsfield for lora {lora.id}: {e}")
+        return
+
     if not lora.replicate_prediction_id:
         return
 
