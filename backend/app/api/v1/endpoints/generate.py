@@ -36,6 +36,10 @@ from app.core.security import get_current_licensed_user
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+VALID_ASPECT_RATIOS = {"9:16", "16:9", "4:3", "3:4", "1:1", "2:3", "3:2"}
+VALID_RESOLUTIONS = {"720p", "1080p"}
+VALID_RESULT_IMAGES = {1, 4}
+
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
@@ -49,112 +53,18 @@ def ensure_trigger_word(prompt: str, trigger_word: str) -> str:
     return f"{trigger_word}, {prompt.strip()}".strip(", ")
 
 
-def pose_phrase(pose: str) -> str:
-    mapping = {
-        "standing": "standing pose, full body balance, natural posture",
-        "sitting": "seated pose, relaxed legs, natural body alignment",
-        "lying": "lying down pose, reclining composition, natural body placement",
-        "kneeling": "kneeling pose, grounded posture, realistic body positioning",
-        "custom": "custom pose, realistic anatomy, physically plausible pose",
-    }
-    return mapping.get((pose or "").lower(), "natural pose, realistic anatomy")
-
-
-def makeup_phrase(makeup: float) -> str:
-    if makeup < 0.2:
-        return "barely any makeup, natural skin texture, fresh face"
-    if makeup < 0.45:
-        return "light makeup, soft blush, subtle lipstick"
-    if makeup < 0.75:
-        return "refined glam makeup, defined eyes, flattering lipstick"
-    return "dramatic glam makeup, defined eyeliner, polished beauty look"
-
-
-def nsfw_phrase(strength: float) -> str:
-    if strength < 0.2:
-        return "fully clothed adult glamour photography, sensual but non-explicit"
-    if strength < 0.45:
-        return "sensual adult glamour, revealing outfit, seductive styling"
-    if strength < 0.7:
-        return "erotic adult glamour photography, lingerie or revealing styling"
-    if strength < 0.9:
-        return "explicit adult NSFW photography, nude composition, erotic realism"
-    return "highly explicit adult NSFW photography, nude body emphasis, erotic realism"
-
-
-def cum_effect_phrase(cum_effect: float) -> str:
-    if cum_effect < 0.2:
-        return "clean composition, no fluid effects"
-    if cum_effect < 0.45:
-        return "slight glossy skin highlights, wet look details"
-    if cum_effect < 0.75:
-        return "visible wet skin details, glossy erotic finish"
-    return "explicit fluid details, glossy wet erotic finish"
-
-
-def feminine_phrase(girl_lora_strength: float | None) -> str:
-    value = 0.8 if girl_lora_strength is None else girl_lora_strength
-    if value < 0.35:
-        return "adult woman, restrained feminine styling"
-    if value < 0.7:
-        return "adult woman, balanced feminine facial features"
-    return "adult woman, feminine facial features, soft curves, elegant beauty"
-
-
 def build_prompt(request: GenerationRequest, trigger_word: str) -> str:
     base_prompt = ensure_trigger_word(request.prompt, trigger_word)
     realism_parts = [
         "ultra realistic photography",
-        "photorealistic skin texture",
-        "detailed face",
-        "high facial likeness",
-        "cinematic lighting",
+        "flawless clarity",
+        "natural light",
+        "visible pores",
+        "fabric details",
+        "premium commercial realism",
         "sharp focus",
     ]
-    control_parts = [
-        pose_phrase(request.pose),
-        makeup_phrase(request.makeup),
-        nsfw_phrase(request.strength),
-        cum_effect_phrase(request.cumEffect),
-        feminine_phrase(request.girlLoraStrength),
-    ]
-    return ", ".join([base_prompt, *realism_parts, *control_parts])
-
-
-def build_negative_prompt(negative_prompt: str, strength: float) -> str:
-    defaults = [
-        "low quality",
-        "blurry",
-        "deformed anatomy",
-        "bad hands",
-        "extra fingers",
-        "cross-eyed",
-        "mutated face",
-        "plastic skin",
-        "cartoon",
-        "illustration",
-        "painting",
-        "3d render",
-        "censored",
-        "mosaic",
-        "watermark",
-        "text",
-    ]
-    if strength > 0.5:
-        defaults.extend(["clothes when nude is intended", "covered body when explicit pose is intended"])
-    if negative_prompt.strip():
-        defaults.insert(0, negative_prompt.strip())
-    return ", ".join(defaults)
-
-
-def tuned_guidance_scale(request: GenerationRequest) -> float:
-    base = 3.2 + (request.makeup * 0.4) + (request.strength * 0.6)
-    return round(clamp(base, 3.0, 4.8), 2)
-
-
-def tuned_prompt_strength(request: GenerationRequest) -> float:
-    base = 0.72 + (request.loraStrength * 0.2) + ((request.girlLoraStrength or 0.8) * 0.08)
-    return round(clamp(base, 0.7, 0.98), 2)
+    return ", ".join([base_prompt, *realism_parts])
 
 
 def is_soul_identity(lora: LoRAModel) -> bool:
@@ -167,16 +77,34 @@ def extract_soul_id(lora: LoRAModel) -> str:
     return lora.fal_lora_url.split(":", 1)[1]
 
 
-def higgsfield_aspect_ratio(width: int, height: int) -> str:
-    if width == height:
-        return "1:1"
-    if width > height:
-        return "16:9" if width / max(height, 1) > 1.5 else "3:2"
-    return "9:16" if height / max(width, 1) > 1.5 else "2:3"
+def validated_aspect_ratio(value: str) -> str:
+    if value not in VALID_ASPECT_RATIOS:
+        raise HTTPException(status_code=400, detail="Aspect ratio invalido para Soul Character")
+    return value
 
 
-def higgsfield_resolution(width: int, height: int) -> str:
-    return "1080p" if max(width, height) >= 1536 else "720p"
+def validated_resolution(value: str) -> str:
+    if value not in VALID_RESOLUTIONS:
+        raise HTTPException(status_code=400, detail="Resolution invalida para Soul Character")
+    return value
+
+
+def validated_result_images(value: int) -> int:
+    if value not in VALID_RESULT_IMAGES:
+        raise HTTPException(status_code=400, detail="Result images deve ser 1 ou 4")
+    return value
+
+
+def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, int]:
+    longest_edge = 1920 if resolution == "1080p" else 1280
+    width_ratio, height_ratio = map(int, aspect_ratio.split(":"))
+    if width_ratio >= height_ratio:
+        width = longest_edge
+        height = int(round(longest_edge * height_ratio / width_ratio))
+    else:
+        height = longest_edge
+        width = int(round(longest_edge * width_ratio / height_ratio))
+    return width, height
 
 
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
@@ -207,7 +135,7 @@ async def generate_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_licensed_user),
 ):
-    """Generate image with NSFW granular controls."""
+    """Generate image with Soul Character defaults."""
     lora = db.query(LoRAModel).filter(
         LoRAModel.model_name == request.loraName
     ).order_by(LoRAModel.created_at.desc()).first()
@@ -224,40 +152,42 @@ async def generate_image(
     
     try:
         enhanced_prompt = build_prompt(request, lora.trigger_word)
-        enhanced_negative_prompt = build_negative_prompt(request.negativePrompt, request.strength)
-        final_guidance_scale = tuned_guidance_scale(request)
-        final_prompt_strength = tuned_prompt_strength(request)
-
+        aspect_ratio = validated_aspect_ratio(request.aspectRatio)
+        resolution = validated_resolution(request.resolution)
+        result_images = validated_result_images(request.resultImages)
+        width, height = aspect_ratio_dimensions(aspect_ratio, resolution)
         logger.info("[Generate] enhanced prompt: %s", enhanced_prompt)
         if is_soul_identity(lora):
             soul_service = HiggsfieldService()
-            result = await soul_service.create_soul_image(
+            soul_id = extract_soul_id(lora)
+            if request.characterId and request.characterId != soul_id:
+                raise HTTPException(status_code=400, detail="Character ID nao corresponde a identidade selecionada")
+            result = await soul_service.create_soul_character_image(
                 prompt=enhanced_prompt,
-                custom_reference_id=extract_soul_id(lora),
-                custom_reference_strength=final_prompt_strength,
-                aspect_ratio=higgsfield_aspect_ratio(request.width, request.height),
-                resolution=higgsfield_resolution(request.width, request.height),
+                character_id=soul_id,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+                result_images=result_images,
+                reference_image_urls=request.referenceImageUrls,
             )
             logger.info("[Generate] Higgsfield result: %s", result)
         else:
             replicate_service = ReplicateService()
             logger.info(
-                "[Generate] request: lora_name=%s, lora_url=%s, prompt_strength=%s, guidance=%s",
+                "[Generate] fallback replicate request: lora_name=%s, lora_url=%s, width=%s, height=%s",
                 request.loraName,
                 lora.fal_lora_url,
-                final_prompt_strength,
-                final_guidance_scale,
+                width,
+                height,
             )
             result = await replicate_service.generate_image(
                 prompt=enhanced_prompt,
-                negative_prompt=enhanced_negative_prompt,
                 lora_url=lora.fal_lora_url,
-                lora_strength=final_prompt_strength,
-                width=request.width,
-                height=request.height,
-                steps=request.steps,
-                guidance_scale=final_guidance_scale,
-                seed=request.seed,
+                lora_strength=0.95,
+                width=width,
+                height=height,
+                steps=28,
+                guidance_scale=4.0,
             )
             logger.info(f"[Generate] replicate result: {result}")
         if result.get("error"):
@@ -272,17 +202,22 @@ async def generate_image(
         raise HTTPException(status_code=500, detail=f"Failed to generate custom image: {str(e)}")
         
     image_url = ""
+    image_urls: list[str] = []
     # replicate typically returns ["url"] or a url string
     if result and "output" in result:
         output = result.get("output", [])
         if isinstance(output, list) and len(output) > 0:
             image_url = output[0]
+            image_urls = [item for item in output if isinstance(item, str)]
         elif isinstance(output, str):
             image_url = output
+            image_urls = [output]
     elif result and isinstance(result, list) and len(result) > 0:
         image_url = result[0]
+        image_urls = [item for item in result if isinstance(item, str)]
     elif result and isinstance(result, str):
         image_url = result
+        image_urls = [result]
     
     if is_soul_identity(lora):
         request_id = result.get("request_id")
@@ -297,19 +232,19 @@ async def generate_image(
         task_id=task_id,
         task_type="image",
         prompt=request.prompt,
-        negative_prompt=request.negativePrompt,
+        negative_prompt="",
         lora_id=lora.id,
-        cum_effect=request.cumEffect,
-        makeup=request.makeup,
-        pose=request.pose,
-        strength=request.strength,
-        lora_strength=request.loraStrength,
-        girl_lora_strength=request.girlLoraStrength,
-        width=request.width,
-        height=request.height,
-        steps=request.steps,
-        guidance_scale=request.guidanceScale,
-        seed=request.seed,
+        cum_effect=0,
+        makeup=0,
+        pose="soul-character",
+        strength=1,
+        lora_strength=1,
+        girl_lora_strength=1,
+        width=width,
+        height=height,
+        steps=1,
+        guidance_scale=1,
+        seed=None,
         output_url=image_url,
         status=status_value,
         progress=100 if image_url else (25 if is_soul_identity(lora) else 50),
@@ -322,6 +257,7 @@ async def generate_image(
         taskId=task_id,
         status=db_generation.status,
         imageUrl=image_url,
+        imageUrls=image_urls,
         message="Image generation completed" if image_url else "Processing",
     )
 
@@ -349,8 +285,13 @@ async def get_generation_status(
             new_status = prediction.get("status")
             if new_status == "completed":
                 outputs = prediction.get("images", [])
-                if outputs:
-                    generation.output_url = outputs[0].get("url")
+                resolved_urls = [
+                    output.get("url")
+                    for output in outputs
+                    if isinstance(output, dict) and output.get("url")
+                ]
+                if resolved_urls:
+                    generation.output_url = resolved_urls[0]
                 generation.status = "completed"
                 generation.progress = 100
                 db.commit()
@@ -405,11 +346,27 @@ async def get_generation_status(
             import logging
             logging.error(f"Error polling generation task {task_id}: {e}")
     
+    image_urls: list[str] = []
+    if generation.status == "completed" and task_id.startswith("hf_"):
+        try:
+            prediction = await HiggsfieldService().get_request_status(task_id.split("_", 1)[1])
+            outputs = prediction.get("images", [])
+            image_urls = [
+                output.get("url")
+                for output in outputs
+                if isinstance(output, dict) and output.get("url")
+            ]
+        except Exception:
+            image_urls = [generation.output_url] if generation.output_url else []
+    elif generation.output_url:
+        image_urls = [generation.output_url]
+
     return GenerationResponse(
         ok=True,
         taskId=generation.task_id,
         status=generation.status,
         imageUrl=generation.output_url,
+        imageUrls=image_urls,
         progress=generation.progress,
     )
 
