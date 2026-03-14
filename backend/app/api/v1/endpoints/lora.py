@@ -1,32 +1,19 @@
 from __future__ import annotations
-
-import logging
-import re
 from typing import List, Optional
 from urllib.parse import unquote
 
-import io
-import zipfile
-
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from app.models.database import LoRAModel, User, get_db
-from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.security import get_current_licensed_user
-from app.services.replicate_service import ReplicateService
-from app.services.r2_storage import R2Storage
+from app.models.database import LoRAModel, User, get_db
+from app.services.higgsfield_service import HiggsfieldService
+from app.core.config import settings
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
-
-def slugify_model_name(value: str) -> str:
-    slug = re.sub(r"[^a-z0-9-]+", "-", value.lower()).strip("-")
-    return slug or "modelclone-lora"
 
 
 def normalize_model_name(value: str) -> str:
@@ -40,19 +27,32 @@ def validate_reference_photo_path(path: str, current_user: User) -> str:
     normalized = unquote(path.strip())
     expected_prefix = f"/storage/{current_user.id}/"
     if not normalized.startswith(expected_prefix):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Reference photo does not belong to the current user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Reference photo does not belong to the current user",
+        )
     if ".." in normalized:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reference photo path")
     return normalized
 
 
+def build_public_reference_photo_url(path: str) -> str:
+    return f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{path}"
+
+
+def soul_reference_marker(reference_id: str | None) -> str | None:
+    if not reference_id:
+        return None
+    return f"soul-id:{reference_id}"
+
+
 class LoRARecoveryRequest(BaseModel):
-    userId: str = Field(..., description="ID único do usuário")
-    modelName: str = Field(..., description="Nome do modelo LoRA")
-    triggerWord: str = Field(..., description="Palavra de ativação do LoRA")
-    enableNsfw: bool = Field(default=False, description="Habilitar conteúdo NSFW")
+    userId: str = Field(..., description="ID unico do usuario")
+    modelName: str = Field(..., description="Nome do modelo")
+    triggerWord: str = Field(..., description="Palavra de ativacao")
+    enableNsfw: bool = Field(default=False, description="Habilitar conteudo NSFW")
     referencePhotos: List[str] = Field(..., description="Paths das fotos salvas")
-    falLoraUrl: Optional[str] = Field(None, description="URL do LoRA na fal.ai")
+    falLoraUrl: Optional[str] = Field(None, description="Compatibilidade legada")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -73,26 +73,22 @@ async def create_or_recover_lora(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_licensed_user),
 ):
-    """Create or recover a LoRA model for user identity."""
-    logger.info(f"LoRA Recovery Request: userId={request.userId}, modelName={request.modelName}")
+    logger.info("Soul ID Request: userId=%s, modelName=%s", request.userId, request.modelName)
 
     if len(request.referencePhotos) < 5:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Mínimo de 5 fotos requerido. Você enviou {len(request.referencePhotos)}."
+            detail=f"Minimo de 5 fotos requerido. Voce enviou {len(request.referencePhotos)}.",
         )
 
     if len(request.referencePhotos) > 20:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Máximo de 20 fotos permitido. Você enviou {len(request.referencePhotos)}."
+            detail=f"Maximo de 20 fotos permitido. Voce enviou {len(request.referencePhotos)}.",
         )
 
     if not request.triggerWord or len(request.triggerWord.strip()) == 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="triggerWord é obrigatório"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="triggerWord e obrigatorio")
 
     if request.userId.strip() != str(current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User mismatch")
@@ -101,9 +97,8 @@ async def create_or_recover_lora(
     safe_model_name = normalize_model_name(request.modelName)
     safe_reference_photos = [validate_reference_photo_path(path, current_user) for path in request.referencePhotos]
 
-    token = settings.REPLICATE_API_TOKEN
-    
-    if not token:
+    higgsfield_service = HiggsfieldService()
+    if not higgsfield_service.is_configured:
         db_lora = LoRAModel(
             user_id=user_id,
             model_name=safe_model_name,
@@ -114,10 +109,10 @@ async def create_or_recover_lora(
         )
         db.add(db_lora)
         db.commit()
-        
+
         return LoRARecoveryResponse(
             ok=False,
-            message="Replicate API token não configurado",
+            message="Higgsfield Soul ID nao configurado",
             loraId=str(db_lora.id),
             falLoraUrl=None,
             status="failed",
@@ -125,136 +120,75 @@ async def create_or_recover_lora(
         )
 
     try:
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                for i, path in enumerate(safe_reference_photos):
-                    try:
-                        img_response = await client.get(f"{settings.internal_api_base_url}{path}")
-                        if img_response.status_code == 200:
-                            ext = path.split('.')[-1] if '.' in path else 'jpg'
-                            filename = f"image_{i+1}.{ext}"
-                            zip_file.writestr(filename, img_response.content)
-                    except Exception as e:
-                        logger.warning(f"Failed to download image {path}: {e}")
-            
-            zip_buffer.seek(0)
-            zip_content = zip_buffer.getvalue()
-            
-            r2 = R2Storage()
-            zip_filename = f"lora-training/{user_id}/{slugify_model_name(safe_model_name)}/training_images.zip"
-            r2_result = r2.upload_file(
-                file_content=zip_content,
-                file_name=zip_filename,
-                content_type="application/zip",
-                is_public=False,
-            )
-            
-            if not r2_result.get("ok"):
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to upload ZIP to R2: {r2_result.get('error')}"
-                )
-            
-            presigned = r2.generate_presigned_url(zip_filename, expiration=3600)
-            file_url = presigned.get("url") if presigned.get("ok") else r2_result.get("file_url")
-            if not file_url:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to resolve training ZIP URL",
-                )
-            logger.info(f"Uploaded ZIP to R2: {file_url}")
-            
-            logger.info(f"Starting LoRA training for user {user_id} with model {safe_model_name}")
-            logger.info(f"Trigger word: {request.triggerWord}, NSFW: {request.enableNsfw}")
-            
-            replicate_owner = settings.REPLICATE_OWNER
-            if not replicate_owner:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="REPLICATE_OWNER não configurado no backend",
-                )
+        input_images = [build_public_reference_photo_url(path) for path in safe_reference_photos]
+        logger.info("Creating Soul ID for user %s with %s images", user_id, len(input_images))
 
-            destination_model_name = f"mc2-{user_id}-{slugify_model_name(safe_model_name)}"
-            destination = f"{replicate_owner}/{destination_model_name}"
-            replicate_service = ReplicateService(token)
+        result = await higgsfield_service.create_soul_id(
+            name=safe_model_name,
+            input_images=input_images,
+        )
+        logger.info("Higgsfield custom reference response: %s", str(result)[:500])
 
-            create_model_result = await replicate_service.create_model(
-                owner=replicate_owner,
-                name=destination_model_name,
-                description=f"AREA 69 fine-tune for {safe_model_name}",
-                visibility="private",
-            )
-            if create_model_result.get("error") and "already exists" not in create_model_result.get("error", "").lower():
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=create_model_result["error"],
-                )
+        if result.get("error"):
+            logger.error(result["error"])
 
-            result = await replicate_service.train_lora(
-                training_data_url=file_url,
-                trigger_word=request.triggerWord,
-                destination=destination,
-                steps=1000,
-            )
-
-            logger.info(f"Replicate training response: {str(result)[:500]}")
-
-            if result.get("error"):
-                error_msg = result["error"]
-                logger.error(error_msg)
-                
-                db_lora = LoRAModel(
-                    user_id=user_id,
-                    model_name=safe_model_name,
-                    fal_lora_url=None,
-                    trigger_word=request.triggerWord,
-                    enable_nsfw=request.enableNsfw,
-                    status="failed",
-                )
-                db.add(db_lora)
-                db.commit()
-                
-                return LoRARecoveryResponse(
-                    ok=False,
-                    message="Erro ao iniciar treino no Replicate",
-                    loraId=str(db_lora.id),
-                    falLoraUrl=None,
-                    status="failed",
-                    referencePhotos=safe_reference_photos,
-                )
-            
-            prediction_id = result.get("id")
-            prediction_status = result.get("status", "starting")
-            
             db_lora = LoRAModel(
                 user_id=user_id,
                 model_name=safe_model_name,
-                fal_lora_url=destination,
+                fal_lora_url=None,
                 trigger_word=request.triggerWord,
                 enable_nsfw=request.enableNsfw,
-                status=prediction_status,
-                replicate_prediction_id=prediction_id,
+                status="failed",
             )
             db.add(db_lora)
             db.commit()
-            
-            logger.info(f"LoRA training started: {db_lora.id}, prediction_id={prediction_id}, status={prediction_status}")
 
             return LoRARecoveryResponse(
-                ok=True,
-                message=f"Treinamento LoRA '{safe_model_name}' iniciado. Status: {prediction_status}",
+                ok=False,
+                message="Erro ao criar Soul ID no Higgsfield",
                 loraId=str(db_lora.id),
-                falLoraUrl=destination,
-                status=prediction_status,
+                falLoraUrl=None,
+                status="failed",
                 referencePhotos=safe_reference_photos,
-                predictionId=prediction_id,
             )
-            
+
+        reference_id = result.get("id")
+        reference_status = result.get("status", "queued")
+        db_status = "ready" if reference_status == "completed" else reference_status
+        reference_marker = soul_reference_marker(reference_id)
+
+        db_lora = LoRAModel(
+            user_id=user_id,
+            model_name=safe_model_name,
+            fal_lora_url=reference_marker,
+            trigger_word=request.triggerWord,
+            enable_nsfw=request.enableNsfw,
+            status=db_status,
+            replicate_prediction_id=None,
+        )
+        db.add(db_lora)
+        db.commit()
+
+        logger.info(
+            "Soul ID creation started: lora_id=%s reference_id=%s status=%s",
+            db_lora.id,
+            reference_id,
+            db_status,
+        )
+
+        return LoRARecoveryResponse(
+            ok=True,
+            message=f"Soul ID '{safe_model_name}' iniciado. Status: {db_status}",
+            loraId=str(db_lora.id),
+            falLoraUrl=reference_marker,
+            status=db_status,
+            referencePhotos=safe_reference_photos,
+            predictionId=reference_id,
+        )
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Exception: {str(e)}")
+    except Exception as exc:
+        logger.error("Exception creating Soul ID: %s", exc)
 
         db_lora = LoRAModel(
             user_id=user_id,
@@ -269,5 +203,5 @@ async def create_or_recover_lora(
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro: {str(e)}",
+            detail=f"Erro: {str(exc)}",
         )
