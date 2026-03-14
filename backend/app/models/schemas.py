@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 # LoRA Schemas
@@ -35,13 +35,54 @@ class LoRAStatus(BaseModel):
 
 # Generation Schemas (Soul Character)
 class GenerationRequest(BaseModel):
-    prompt: str
-    loraName: str
-    characterId: Optional[str] = None
-    aspectRatio: str = "9:16"
-    resolution: str = "1080p"
-    resultImages: int = Field(1, ge=1, le=4)
-    referenceImageUrls: list[str] = Field(default_factory=list)
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    prompt: str = Field(validation_alias=AliasChoices("prompt", "Prompt"))
+    loraName: str = Field(validation_alias=AliasChoices("loraName", "lora_name", "LoRA Name"))
+    characterId: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("characterId", "character_id", "Character ID"),
+    )
+    aspectRatio: str = Field(
+        default="9:16",
+        validation_alias=AliasChoices("aspectRatio", "aspect_ratio", "Aspect Ratio"),
+    )
+    resolution: str = Field(
+        default="1080p",
+        validation_alias=AliasChoices("resolution", "Resolution"),
+    )
+    resultImages: int = Field(
+        1,
+        ge=1,
+        le=4,
+        validation_alias=AliasChoices("resultImages", "result_images", "Result Images"),
+    )
+    referenceImageUrls: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("referenceImageUrls", "reference_image_urls", "Image Reference URL"),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_reference_images(cls, data):
+        if not isinstance(data, dict):
+            return data
+
+        normalized = dict(data)
+        reference_value = normalized.get("referenceImageUrls")
+        if reference_value is None:
+            reference_value = normalized.get("reference_image_urls")
+        if reference_value is None:
+            reference_value = normalized.get("Image Reference URL")
+
+        if reference_value is None:
+            normalized["referenceImageUrls"] = []
+        elif isinstance(reference_value, str):
+            normalized["referenceImageUrls"] = [reference_value]
+        else:
+            normalized["referenceImageUrls"] = reference_value
+
+        return normalized
 
 
 class GenerationResponse(BaseModel):
