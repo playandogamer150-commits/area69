@@ -50,7 +50,13 @@ class HiggsfieldService:
     async def create_soul_id(self, name: str, input_images: list[str]) -> dict[str, Any]:
         body = {
             "name": name,
-            "input_images": input_images,
+            "input_images": [
+                {
+                    "type": "image_url",
+                    "image_url": image_url,
+                }
+                for image_url in input_images
+            ],
         }
         return await self._request(
             "POST",
