@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+import random
 
 import httpx
 
@@ -79,25 +80,35 @@ class HiggsfieldService:
             headers=self._custom_reference_headers(),
         )
 
-    async def create_soul_image(
+    async def create_soul_character_image(
         self,
         *,
         prompt: str,
-        custom_reference_id: str,
-        custom_reference_strength: float,
+        character_id: str,
         aspect_ratio: str,
         resolution: str,
+        result_images: int,
+        reference_image_urls: list[str] | None = None,
     ) -> dict[str, Any]:
         body = {
             "prompt": prompt,
             "aspect_ratio": aspect_ratio,
             "resolution": resolution,
-            "custom_reference_id": custom_reference_id,
-            "custom_reference_strength": custom_reference_strength,
+            "soul_style": "realistic",
+            "style_strength": 1,
+            "character_id": character_id,
+            "character_strength": 1,
+            "result_images": result_images,
+            "enhance_prompt": True,
+            "seed": random.randint(1, 2_147_483_647),
         }
+        normalized_reference_urls = [url for url in (reference_image_urls or []) if url]
+        if normalized_reference_urls:
+            body["image_reference_urls"] = normalized_reference_urls
+            body["image_reference_url"] = normalized_reference_urls[0]
         return await self._request(
             "POST",
-            "/higgsfield-ai/soul/standard",
+            "/higgsfield-ai/soul/character",
             headers=self._request_headers(),
             json=body,
         )

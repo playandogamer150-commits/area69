@@ -1,14 +1,10 @@
 import api from './api'
-import type { LoRAResponse, LoRAStatus } from '../types/api.types'
-
-interface UploadResponse {
-  ok: boolean
-  saved: Array<{ path: string; filename: string; size: number; contentType: string }>
-  message: string
-  userId: string
-  modelName: string
-  enableNsfw: boolean
-}
+import type {
+  GenerateReferenceImagesUploadResponse,
+  LoRAResponse,
+  LoRAStatus,
+  ReferencePhotosUploadResponse,
+} from '../types/api.types'
 
 export const loraService = {
   async createLoRA(data: {
@@ -32,8 +28,15 @@ export const loraService = {
     return response.data
   },
 
-  async uploadReferencePhotos(formData: FormData): Promise<UploadResponse> {
-    const response = await api.post<UploadResponse>('/upload/reference-photos', formData, {
+  async uploadReferencePhotos(formData: FormData): Promise<ReferencePhotosUploadResponse> {
+    const response = await api.post<ReferencePhotosUploadResponse>('/upload/reference-photos', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
+  async uploadGenerateReferenceImages(formData: FormData): Promise<GenerateReferenceImagesUploadResponse> {
+    const response = await api.post<GenerateReferenceImagesUploadResponse>('/upload/generate-reference-images', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     return response.data

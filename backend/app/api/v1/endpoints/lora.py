@@ -81,12 +81,6 @@ async def create_or_recover_lora(
             detail=f"Minimo de 5 fotos requerido. Voce enviou {len(request.referencePhotos)}.",
         )
 
-    if len(request.referencePhotos) > 20:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Maximo de 20 fotos permitido. Voce enviou {len(request.referencePhotos)}.",
-        )
-
     if not request.triggerWord or len(request.triggerWord.strip()) == 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="triggerWord e obrigatorio")
 
@@ -95,7 +89,8 @@ async def create_or_recover_lora(
 
     user_id = current_user.id
     safe_model_name = normalize_model_name(request.modelName)
-    safe_reference_photos = [validate_reference_photo_path(path, current_user) for path in request.referencePhotos]
+    selected_reference_photos = request.referencePhotos[:20]
+    safe_reference_photos = [validate_reference_photo_path(path, current_user) for path in selected_reference_photos]
 
     higgsfield_service = HiggsfieldService()
     if not higgsfield_service.is_configured:
