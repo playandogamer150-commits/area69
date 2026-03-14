@@ -27,6 +27,7 @@ from app.models.schemas import (
     VideoMotionResponse,
 )
 from app.core.config import settings
+from app.services.higgsfield_service import HiggsfieldService
 from app.services.replicate_service import ReplicateService
 from app.services.r2_storage import R2Storage
 from app.services.wavespeed_service import WaveSpeedService
@@ -156,6 +157,28 @@ def tuned_prompt_strength(request: GenerationRequest) -> float:
     return round(clamp(base, 0.7, 0.98), 2)
 
 
+def is_soul_identity(lora: LoRAModel) -> bool:
+    return bool(lora.fal_lora_url and lora.fal_lora_url.startswith("soul-id:"))
+
+
+def extract_soul_id(lora: LoRAModel) -> str:
+    if not is_soul_identity(lora):
+        raise HTTPException(status_code=400, detail="Identidade Soul ID invalida")
+    return lora.fal_lora_url.split(":", 1)[1]
+
+
+def higgsfield_aspect_ratio(width: int, height: int) -> str:
+    if width == height:
+        return "1:1"
+    if width > height:
+        return "16:9" if width / max(height, 1) > 1.5 else "3:2"
+    return "9:16" if height / max(width, 1) > 1.5 else "2:3"
+
+
+def higgsfield_resolution(width: int, height: int) -> str:
+    return "1080p" if max(width, height) >= 1536 else "720p"
+
+
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
     if entity_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Resource does not belong to the current user")
@@ -199,33 +222,44 @@ async def generate_image(
             detail=f"LoRA is not ready. Current status: {lora.status}"
         )
     
-    replicate_service = ReplicateService()
     try:
         enhanced_prompt = build_prompt(request, lora.trigger_word)
         enhanced_negative_prompt = build_negative_prompt(request.negativePrompt, request.strength)
         final_guidance_scale = tuned_guidance_scale(request)
         final_prompt_strength = tuned_prompt_strength(request)
 
-        logger.info(
-            "[Generate] request: lora_name=%s, lora_url=%s, prompt_strength=%s, guidance=%s",
-            request.loraName,
-            lora.fal_lora_url,
-            final_prompt_strength,
-            final_guidance_scale,
-        )
         logger.info("[Generate] enhanced prompt: %s", enhanced_prompt)
-        result = await replicate_service.generate_image(
-            prompt=enhanced_prompt,
-            negative_prompt=enhanced_negative_prompt,
-            lora_url=lora.fal_lora_url,
-            lora_strength=final_prompt_strength,
-            width=request.width,
-            height=request.height,
-            steps=request.steps,
-            guidance_scale=final_guidance_scale,
-            seed=request.seed,
-        )
-        logger.info(f"[Generate] replicate result: {result}")
+        if is_soul_identity(lora):
+            soul_service = HiggsfieldService()
+            result = await soul_service.create_soul_image(
+                prompt=enhanced_prompt,
+                custom_reference_id=extract_soul_id(lora),
+                custom_reference_strength=final_prompt_strength,
+                aspect_ratio=higgsfield_aspect_ratio(request.width, request.height),
+                resolution=higgsfield_resolution(request.width, request.height),
+            )
+            logger.info("[Generate] Higgsfield result: %s", result)
+        else:
+            replicate_service = ReplicateService()
+            logger.info(
+                "[Generate] request: lora_name=%s, lora_url=%s, prompt_strength=%s, guidance=%s",
+                request.loraName,
+                lora.fal_lora_url,
+                final_prompt_strength,
+                final_guidance_scale,
+            )
+            result = await replicate_service.generate_image(
+                prompt=enhanced_prompt,
+                negative_prompt=enhanced_negative_prompt,
+                lora_url=lora.fal_lora_url,
+                lora_strength=final_prompt_strength,
+                width=request.width,
+                height=request.height,
+                steps=request.steps,
+                guidance_scale=final_guidance_scale,
+                seed=request.seed,
+            )
+            logger.info(f"[Generate] replicate result: {result}")
         if result.get("error"):
             raise HTTPException(
                 status_code=result.get("status_code", 500),
@@ -250,7 +284,13 @@ async def generate_image(
     elif result and isinstance(result, str):
         image_url = result
     
-    task_id = result.get("id") if result and result.get("id") else f"gen_{uuid.uuid4().hex[:12]}"
+    if is_soul_identity(lora):
+        request_id = result.get("request_id")
+        task_id = f"hf_{request_id}" if request_id else f"hf_{uuid.uuid4().hex[:12]}"
+        status_value = result.get("status", "queued")
+    else:
+        task_id = result.get("id") if result and result.get("id") else f"gen_{uuid.uuid4().hex[:12]}"
+        status_value = "completed" if image_url else "processing"
     
     db_generation = Generation(
         user_id=lora.user_id,
@@ -271,8 +311,8 @@ async def generate_image(
         guidance_scale=request.guidanceScale,
         seed=request.seed,
         output_url=image_url,
-        status="completed" if image_url else "processing",
-        progress=100 if image_url else 50,
+        status=status_value,
+        progress=100 if image_url else (25 if is_soul_identity(lora) else 50),
     )
     db.add(db_generation)
     db.commit()
@@ -301,7 +341,32 @@ async def get_generation_status(
         raise HTTPException(status_code=404, detail="Task not found")
     ensure_task_belongs_to_user(generation.user_id, current_user)
         
-    if generation.status in ("pending", "created", "processing") and not task_id.startswith("gen_"):
+    if generation.status in ("pending", "created", "processing", "queued", "in_progress") and task_id.startswith("hf_"):
+        try:
+            soul_service = HiggsfieldService()
+            request_id = task_id.split("_", 1)[1]
+            prediction = await soul_service.get_request_status(request_id)
+            new_status = prediction.get("status")
+            if new_status == "completed":
+                outputs = prediction.get("images", [])
+                if outputs:
+                    generation.output_url = outputs[0].get("url")
+                generation.status = "completed"
+                generation.progress = 100
+                db.commit()
+            elif new_status in ("failed", "canceled", "nsfw"):
+                generation.status = new_status
+                generation.error_message = prediction.get("error") or new_status
+                db.commit()
+            elif new_status:
+                generation.status = new_status
+                generation.progress = 60
+                db.commit()
+        except Exception as e:
+            import logging
+
+            logging.error(f"Error polling Higgsfield generation task {task_id}: {e}")
+    elif generation.status in ("pending", "created", "processing") and not task_id.startswith("gen_"):
         try:
             if generation.task_type == "image_edit":
                 wave_svc = WaveSpeedService()
