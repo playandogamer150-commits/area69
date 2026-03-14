@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { ChevronDown, ImageIcon, Loader2, Sparkles, Wand2 } from 'lucide-react'
+import { ChevronDown, ImageIcon, Loader2, Sparkles, User, Wand2 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import type { GenerationRequest, LoRAStatus } from '@/types/api.types'
@@ -125,25 +125,41 @@ export function ImageGeneration() {
   const { toast } = useToast()
   const userId = useCurrentUserId()
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const hasTrainingLoras = loras.some((item) => item.status === 'training')
 
   useEffect(() => {
+    let mounted = true
+
     const loadLoras = async () => {
       try {
         const userLoras = await loraService.getUserLoRAs(userId)
+        if (!mounted) return
         setLoras((userLoras || []).filter((item) => item && item.status !== 'failed'))
       } catch {
+        if (!mounted) return
         setLoras([])
       }
     }
 
     loadLoras()
-  }, [userId])
+    const interval = window.setInterval(loadLoras, hasTrainingLoras ? 5000 : 15000)
+
+    return () => {
+      mounted = false
+      window.clearInterval(interval)
+    }
+  }, [hasTrainingLoras, userId])
 
   useEffect(() => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current)
     }
   }, [])
+
+  const selectedIdentity = useMemo(
+    () => loras.find((item) => item.modelName === selectedLoRA) || null,
+    [loras, selectedLoRA],
+  )
 
   const pollStatus = async (taskId: string) => {
     try {
@@ -169,11 +185,10 @@ export function ImageGeneration() {
       return
     }
 
-    const selectedModel = loras.find((item) => item.modelName === selectedLoRA)
-    if (selectedModel && selectedModel.status !== 'ready') {
+    if (selectedIdentity && selectedIdentity.status !== 'ready') {
       toast({
-        title: 'Aviso',
-        description: `Esta identidade ainda nao terminou o treinamento (status: ${selectedModel.status}).`,
+        title: 'Aguardando Soul ID',
+        description: `Esta identidade ainda esta em ${selectedIdentity.status}. Aguarde a conclusao do treinamento.`,
         variant: 'destructive',
       })
       return
@@ -253,9 +268,9 @@ export function ImageGeneration() {
 
             <div className="mb-5 h-px bg-white/[0.06]" />
 
-            <div className="mb-6">
+            <div className="mb-4">
               <Select
-                label="Modelo LoRA (Identidade)"
+                label="Modelo Soul Character"
                 value={selectedLoRA}
                 onChange={setSelectedLoRA}
                 placeholder="Selecionar identidade"
@@ -270,6 +285,53 @@ export function ImageGeneration() {
                 }
               />
             </div>
+
+            {selectedIdentity && (
+              <div className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] p-4 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
+                <div className="flex items-center gap-4">
+                  <div className="relative h-16 w-16 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04]">
+                    {selectedIdentity.thumbnailUrl ? (
+                      <img src={selectedIdentity.thumbnailUrl} alt={selectedIdentity.modelName} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <User className="h-6 w-6 text-gray-500" />
+                      </div>
+                    )}
+                    {selectedIdentity.status === 'training' && (
+                      <div className="absolute inset-0 bg-black/45">
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Loader2 className="h-4 w-4 animate-spin text-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <h2 className="text-sm font-semibold text-white">{selectedIdentity.modelName}</h2>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${
+                          selectedIdentity.status === 'ready'
+                            ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                            : 'border border-amber-500/20 bg-amber-500/10 text-amber-300'
+                        }`}
+                      >
+                        {selectedIdentity.status === 'ready' ? <Sparkles className="h-3 w-3" /> : <Loader2 className="h-3 w-3 animate-spin" />}
+                        {selectedIdentity.status === 'ready' ? 'Soul Character ready' : 'Treinando'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Trigger: <span className="text-gray-300">{selectedIdentity.triggerWord}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-gray-600">
+                      {selectedIdentity.status === 'ready'
+                        ? 'Essa identidade ja pode ser usada com o modelo Soul Character da Higgsfield.'
+                        : 'O treinamento ainda nao concluiu. Assim que ficar ready, ela sera liberada aqui automaticamente.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mb-6 space-y-5">
               <Slider
@@ -300,12 +362,12 @@ export function ImageGeneration() {
                 onChange={(value) => setGenerationValues((current) => ({ ...current, strength: value / 100 }))}
               />
               <Slider
-                label="Forca da Identidade (LoRA)"
+                label="Forca da Identidade"
                 value={Math.round(generationValues.loraStrength * 100)}
                 onChange={(value) => setGenerationValues((current) => ({ ...current, loraStrength: value / 100 }))}
               />
               <Slider
-                label="Forca Identidade Feminina"
+                label="Forca da Base Feminina"
                 value={Math.round((generationValues.girlLoraStrength ?? 0) * 100)}
                 onChange={(value) => setGenerationValues((current) => ({ ...current, girlLoraStrength: value / 100 }))}
               />
@@ -333,7 +395,7 @@ export function ImageGeneration() {
               ) : (
                 <>
                   <Wand2 className="h-4 w-4" />
-                  Gerar Imagem
+                  Gerar com Soul Character
                 </>
               )}
             </motion.button>
@@ -371,7 +433,7 @@ export function ImageGeneration() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-semibold text-white">Gerando sua imagem...</p>
-                    <p className="mt-1 text-xs text-gray-500">Isso pode levar alguns segundos</p>
+                    <p className="mt-1 text-xs text-gray-500">O Soul Character esta processando seu prompt agora.</p>
                   </div>
                   <div className="h-1 w-48 overflow-hidden rounded-full bg-white/[0.06]">
                     <motion.div
@@ -397,7 +459,9 @@ export function ImageGeneration() {
                     <ImageIcon className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="max-w-[260px] text-center text-sm leading-relaxed text-gray-500">
-                    A imagem gerada aparecera aqui. Selecione sua identidade na esquerda.
+                    {selectedIdentity?.status === 'ready'
+                      ? 'A imagem gerada aparecera aqui. Monte seu prompt e dispare o Soul Character.'
+                      : 'Selecione uma identidade pronta para liberar o preview de geracao.'}
                   </p>
                 </div>
               )}
