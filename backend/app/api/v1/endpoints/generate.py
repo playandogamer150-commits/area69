@@ -6,7 +6,8 @@ import uuid
 from datetime import datetime
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import ValidationError
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -132,11 +133,20 @@ async def persist_remote_image_to_r2(image_url: str, storage_key: str) -> str:
 
 @router.post("/generate/image", response_model=GenerationResponse)
 async def generate_image(
-    request: GenerationRequest,
+    raw_request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_licensed_user),
 ):
     """Generate image with Soul Character defaults."""
+    raw_payload = await raw_request.json()
+    logger.info("[Generate] raw payload received: %s", raw_payload)
+
+    try:
+        request = GenerationRequest.model_validate(raw_payload)
+    except ValidationError as exc:
+        logger.error("[Generate] validation error: %s", exc.errors())
+        raise HTTPException(status_code=400, detail=exc.errors())
+
     logger.info(
         "[Generate] request payload: loraName=%s characterId=%s aspectRatio=%s resolution=%s resultImages=%s references=%s",
         request.loraName,
