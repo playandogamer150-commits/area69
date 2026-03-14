@@ -33,22 +33,15 @@ class LoRAStatus(BaseModel):
     updatedAt: str
 
 
-# Generation Schemas (with NSFW granular controls)
+# Generation Schemas (Soul Character)
 class GenerationRequest(BaseModel):
     prompt: str
-    negativePrompt: str
     loraName: str
-    loraStrength: float = Field(0.8, ge=0.0, le=1.0)
-    girlLoraStrength: Optional[float] = Field(0.8, ge=0.0, le=1.0)
-    cumEffect: float = Field(0.5, ge=0.0, le=1.0)
-    makeup: float = Field(0.5, ge=0.0, le=1.0)
-    pose: str = "standing"
-    strength: float = Field(0.7, ge=0.0, le=1.0)
-    seed: Optional[int] = None
-    width: int = 1024
-    height: int = 1024
-    steps: int = 30
-    guidanceScale: float = 7.0
+    characterId: Optional[str] = None
+    aspectRatio: str = "9:16"
+    resolution: str = "1080p"
+    resultImages: int = Field(1, ge=1, le=4)
+    referenceImageUrls: list[str] = Field(default_factory=list)
 
 
 class GenerationResponse(BaseModel):
@@ -56,6 +49,7 @@ class GenerationResponse(BaseModel):
     taskId: str
     status: str
     imageUrl: Optional[str] = None
+    imageUrls: list[str] = Field(default_factory=list)
     message: Optional[str] = None
     progress: Optional[int] = None
 
