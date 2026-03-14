@@ -41,26 +41,20 @@ export interface LoRAStatus {
 
 export interface GenerationRequest {
   prompt: string;
-  negativePrompt: string;
   loraName: string;
-  loraStrength: number;
-  girlLoraStrength?: number;
-  cumEffect: number;
-  makeup: number;
-  pose: string;
-  strength: number;
-  seed?: number;
-  width: number;
-  height: number;
-  steps?: number;
-  guidanceScale?: number;
+  characterId?: string;
+  aspectRatio: '9:16' | '16:9' | '4:3' | '3:4' | '1:1' | '2:3' | '3:2';
+  resolution: '720p' | '1080p';
+  resultImages: 1 | 4;
+  referenceImageUrls: string[];
 }
 
 export interface GenerationResponse {
   ok: boolean;
   taskId: string;
-  status: 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'queued' | 'in_progress' | 'completed' | 'failed' | 'canceled' | 'nsfw';
   imageUrl?: string;
+  imageUrls?: string[];
   message?: string;
   progress?: number;
 }
@@ -87,6 +81,32 @@ export interface EditImagesUploadResponse {
   batchId: string;
   userId: string;
   saved: Array<{ path: string; filename: string; size: number; contentType: string }>;
+}
+
+export interface ReferencePhotosUploadResponse {
+  ok: boolean;
+  saved: Array<{ path: string; filename: string; size: number; contentType: string }>;
+  message: string;
+  userId: string;
+  modelName: string;
+  enableNsfw: boolean;
+  totalUploaded: number;
+  usedCount: number;
+  ignoredCount: number;
+}
+
+export interface GenerateReferenceImagesUploadResponse {
+  ok: boolean;
+  message: string;
+  batchId: string;
+  userId: string;
+  saved: Array<{
+    path: string;
+    filename: string;
+    size: number;
+    contentType: string;
+    publicUrl: string;
+  }>;
 }
 
 export interface FaceSwapImageRequest {

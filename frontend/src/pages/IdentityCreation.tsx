@@ -37,7 +37,7 @@ interface TrainingSession {
 }
 
 const MIN_PHOTOS = 5
-const MAX_PHOTOS = 20
+const TRAINING_PHOTO_LIMIT = 20
 const MAX_SIZE_MB = 10
 const TRAINING_STORAGE_KEY = 'area69.identity-training'
 
@@ -79,6 +79,8 @@ export function IdentityCreation() {
   const notifiedReadyRef = useRef<string | null>(null)
   const { toast } = useToast()
   const userId = useCurrentUserId()
+  const trainingPhotos = useMemo(() => files.slice(0, TRAINING_PHOTO_LIMIT), [files])
+  const ignoredPhotosCount = Math.max(0, files.length - TRAINING_PHOTO_LIMIT)
 
   const persistTrainingSession = useCallback(
     (session: TrainingSession | null) => {
@@ -220,7 +222,6 @@ export function IdentityCreation() {
         const file = incoming[index]
         if (!file.type.startsWith('image/')) continue
         if (file.size > MAX_SIZE_MB * 1024 * 1024) continue
-        if (files.length + accepted.length >= MAX_PHOTOS) break
 
         accepted.push({
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -231,7 +232,7 @@ export function IdentityCreation() {
 
       setFiles((current) => [...current, ...accepted])
     },
-    [files.length],
+    [],
   )
 
   const removeFile = (id: string) => {
@@ -253,7 +254,7 @@ export function IdentityCreation() {
     setIsSubmitting(true)
     try {
       const formData = new FormData()
-      files.forEach((file) => formData.append('referencePhotos', file.file))
+      trainingPhotos.forEach((file) => formData.append('referencePhotos', file.file))
       formData.append('userId', userId)
       formData.append('modelName', modelName)
       formData.append('enableNsfw', enableNsfw.toString())
@@ -292,7 +293,10 @@ export function IdentityCreation() {
 
       toast({
         title: 'Treinamento iniciado',
-        description: 'Seu Soul ID esta sendo preparado. A dashboard e esta tela vao atualizar automaticamente.',
+        description:
+          ignoredPhotosCount > 0
+            ? `Seu Soul ID esta sendo preparado com as ${TRAINING_PHOTO_LIMIT} primeiras fotos. A dashboard e esta tela vao atualizar automaticamente.`
+            : 'Seu Soul ID esta sendo preparado. A dashboard e esta tela vao atualizar automaticamente.',
       })
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } }; message?: string }
@@ -306,7 +310,7 @@ export function IdentityCreation() {
     }
   }
 
-  const isValid = files.length >= MIN_PHOTOS && modelName.trim() && triggerWord.trim()
+  const isValid = trainingPhotos.length >= MIN_PHOTOS && modelName.trim() && triggerWord.trim()
   const currentStatusCopy = trainingSession ? statusCopy(trainingSession.status) : null
   const canShowTrainingCard = Boolean(trainingSession)
   const representativePreview = useMemo(() => {
@@ -484,9 +488,11 @@ export function IdentityCreation() {
               <div>
                 <p className="text-sm font-semibold text-white sm:text-base">Arraste fotos ou clique para selecionar</p>
                 <p className="mt-1.5 text-xs text-gray-500">
-                  Minimo {MIN_PHOTOS}, maximo {MAX_PHOTOS} fotos. Tamanho maximo: {MAX_SIZE_MB}MB cada.
+                  Minimo {MIN_PHOTOS} fotos. O treino usa as {TRAINING_PHOTO_LIMIT} melhores/primeiras imagens. Tamanho maximo: {MAX_SIZE_MB}MB cada.
                 </p>
-                <p className="mt-1 text-[11px] text-gray-600">Use fotos claras do rosto, angulos variados e boa iluminacao.</p>
+                <p className="mt-1 text-[11px] text-gray-600">
+                  Quanto melhor e mais variado o material, maior tende a ser a consistencia. Foque em rosto limpo, angulos diferentes e luz boa.
+                </p>
               </div>
             </div>
 
@@ -503,15 +509,38 @@ export function IdentityCreation() {
               >
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs tracking-wide text-gray-400">
-                    <span className={files.length >= MIN_PHOTOS ? 'text-emerald-400' : 'text-red-400'}>{files.length}</span>/{MAX_PHOTOS} fotos
+                    <span className={trainingPhotos.length >= MIN_PHOTOS ? 'text-emerald-400' : 'text-red-400'}>{files.length}</span> fotos carregadas
                   </span>
-                  {files.length >= MIN_PHOTOS && (
+                  {trainingPhotos.length >= MIN_PHOTOS && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
                       <Check className="h-3 w-3" />
                       Minimo atingido
                     </span>
                   )}
                 </div>
+
+                <div className="mb-3 grid gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[11px] text-gray-400 sm:grid-cols-3">
+                  <div>
+                    <span className="block text-gray-500">Entram no treino</span>
+                    <span className="font-semibold text-white">{trainingPhotos.length}</span>
+                  </div>
+                  <div>
+                    <span className="block text-gray-500">Limite do Soul ID</span>
+                    <span className="font-semibold text-white">{TRAINING_PHOTO_LIMIT}</span>
+                  </div>
+                  <div>
+                    <span className="block text-gray-500">Extras ignoradas</span>
+                    <span className={ignoredPhotosCount > 0 ? 'font-semibold text-amber-300' : 'font-semibold text-white'}>
+                      {ignoredPhotosCount}
+                    </span>
+                  </div>
+                </div>
+
+                {ignoredPhotosCount > 0 && (
+                  <div className="mb-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100">
+                    Voce carregou mais de {TRAINING_PHOTO_LIMIT} fotos. Para manter o Soul ID estavel, vamos usar apenas as {TRAINING_PHOTO_LIMIT} primeiras no treino.
+                  </div>
+                )}
 
                 <div className="grid grid-cols-5 gap-2 sm:grid-cols-8">
                   {files.map((item) => (
@@ -630,7 +659,7 @@ export function IdentityCreation() {
             {files.length < MIN_PHOTOS && (
               <p className="flex items-center gap-1.5 text-[11px] text-gray-600">
                 <AlertCircle className="h-3 w-3" />
-                Adicione pelo menos {MIN_PHOTOS} fotos ({files.length}/{MIN_PHOTOS})
+                Adicione pelo menos {MIN_PHOTOS} fotos ({trainingPhotos.length}/{MIN_PHOTOS})
               </p>
             )}
             {!modelName.trim() && (
