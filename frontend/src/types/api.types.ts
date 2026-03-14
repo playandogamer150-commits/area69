@@ -14,8 +14,12 @@ export interface LoRARequest {
 }
 
 export interface LoRAResponse {
-  success: boolean;
+  success?: boolean;
+  ok?: boolean;
+  loraId?: string;
+  status?: string;
   falLoraUrl?: string;
+  predictionId?: string | null;
   message?: string;
 }
 
@@ -29,6 +33,10 @@ export interface LoRAStatus {
   enableNsfw: boolean;
   createdAt: string;
   updatedAt: string;
+  thumbnailUrl?: string | null;
+  referenceId?: string | null;
+  provider?: string | null;
+  referenceMedia?: string[];
 }
 
 export interface GenerationRequest {
