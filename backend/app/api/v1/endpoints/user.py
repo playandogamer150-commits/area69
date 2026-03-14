@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -19,10 +20,37 @@ def map_status(status: str) -> str:
     return status_lower
 
 
-async def sync_lora_status(lora: LoRAModel, db: Session) -> None:
-    if lora.status in ("succeeded", "ready", "failed", "canceled"):
-        return
+def soul_progress(status: str | None) -> int:
+    status_lower = (status or "").lower()
+    if status_lower in ("completed", "ready", "succeeded"):
+        return 100
+    if status_lower == "in_progress":
+        return 72
+    if status_lower in ("queued", "starting"):
+        return 24
+    if status_lower == "not_ready":
+        return 12
+    if status_lower in ("failed", "canceled"):
+        return 100
+    return 0
 
+
+def soul_metadata_from_reference(reference: dict[str, Any], reference_id: str) -> dict[str, Any]:
+    reference_media = reference.get("reference_media") or []
+    reference_media_urls = [
+        media.get("media_url")
+        for media in reference_media
+        if isinstance(media, dict) and media.get("media_url")
+    ]
+    return {
+        "provider": "higgsfield-soul-id",
+        "referenceId": reference_id,
+        "thumbnailUrl": reference.get("thumbnail_url") or (reference_media_urls[0] if reference_media_urls else None),
+        "referenceMedia": reference_media_urls,
+    }
+
+
+async def sync_lora_status(lora: LoRAModel, db: Session) -> dict[str, Any]:
     if lora.fal_lora_url and lora.fal_lora_url.startswith("soul-id:"):
         from app.services.higgsfield_service import HiggsfieldService
 
@@ -30,28 +58,47 @@ async def sync_lora_status(lora: LoRAModel, db: Session) -> None:
         soul_service = HiggsfieldService()
         try:
             reference = await soul_service.get_soul_id(soul_id)
+            if reference.get("error"):
+                return {
+                    "provider": "higgsfield-soul-id",
+                    "referenceId": soul_id,
+                    "thumbnailUrl": None,
+                    "referenceMedia": [],
+                }
+
+            metadata = soul_metadata_from_reference(reference, soul_id)
             new_status = reference.get("status")
             if not new_status:
-                return
+                return metadata
 
             if new_status == "completed":
                 lora.status = "ready"
                 lora.progress = 100
             elif new_status == "failed":
                 lora.status = "failed"
+                lora.progress = 100
             else:
                 lora.status = new_status
-                lora.progress = 50
+                lora.progress = soul_progress(new_status)
 
             db.commit()
+            return metadata
         except Exception as e:
             import logging
 
             logging.error(f"Error polling Higgsfield for lora {lora.id}: {e}")
-        return
+        return {
+            "provider": "higgsfield-soul-id",
+            "referenceId": soul_id,
+            "thumbnailUrl": None,
+            "referenceMedia": [],
+        }
+
+    if lora.status in ("succeeded", "ready", "failed", "canceled"):
+        return {}
 
     if not lora.replicate_prediction_id:
-        return
+        return {}
 
     from app.services.replicate_service import ReplicateService
 
@@ -60,7 +107,7 @@ async def sync_lora_status(lora: LoRAModel, db: Session) -> None:
         training = await rep_svc.get_training(lora.replicate_prediction_id)
         new_status = training.get("status")
         if not new_status:
-            return
+            return {}
 
         if new_status == "succeeded":
             destination = lora.fal_lora_url or training.get("destination")
@@ -82,6 +129,26 @@ async def sync_lora_status(lora: LoRAModel, db: Session) -> None:
         import logging
 
         logging.error(f"Error polling replicate for lora {lora.id}: {e}")
+    return {}
+
+
+async def serialize_lora(lora: LoRAModel, db: Session) -> dict[str, Any]:
+    metadata = await sync_lora_status(lora, db)
+    return {
+        "loraId": str(lora.id),
+        "modelName": lora.model_name,
+        "status": map_status(lora.status),
+        "progress": lora.progress,
+        "falLoraUrl": lora.fal_lora_url,
+        "triggerWord": lora.trigger_word,
+        "enableNsfw": lora.enable_nsfw,
+        "createdAt": lora.created_at.isoformat() if lora.created_at else "",
+        "updatedAt": lora.updated_at.isoformat() if lora.updated_at else "",
+        "thumbnailUrl": metadata.get("thumbnailUrl"),
+        "referenceId": metadata.get("referenceId"),
+        "provider": metadata.get("provider"),
+        "referenceMedia": metadata.get("referenceMedia") or [],
+    }
 
 def ensure_current_user_matches(user_id: str | None, current_user: User) -> User:
     if user_id is not None and user_id.strip() not in {str(current_user.id), current_user.email}:
@@ -99,25 +166,13 @@ async def get_user_loras(
     
     loras = db.query(LoRAModel).filter(LoRAModel.user_id == user.id).order_by(LoRAModel.created_at.desc()).all()
     
+    serialized_loras = []
     for lora in loras:
-        await sync_lora_status(lora, db)
+        serialized = await serialize_lora(lora, db)
+        if serialized["status"] != "failed":
+            serialized_loras.append(serialized)
 
-    # We return the mapped statuses, excluding failed (simulated/test ones)
-    return [
-        {
-            "loraId": str(lora.id),
-            "modelName": lora.model_name,
-            "status": map_status(lora.status),
-            "progress": lora.progress,
-            "falLoraUrl": lora.fal_lora_url,
-            "triggerWord": lora.trigger_word,
-            "enableNsfw": lora.enable_nsfw,
-            "createdAt": lora.created_at.isoformat() if lora.created_at else "",
-            "updatedAt": lora.updated_at.isoformat() if lora.updated_at else "",
-        }
-        for lora in loras
-        if lora.status != "failed"  # Exclude failed/simulated LoRAs
-    ]
+    return serialized_loras
 
 @router.get("/loras/{lora_id}")
 async def get_lora_status(lora_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -127,19 +182,7 @@ async def get_lora_status(lora_id: str, db: Session = Depends(get_db), current_u
     if lora.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Resource does not belong to the current user")
         
-    await sync_lora_status(lora, db)
-
-    return {
-        "loraId": str(lora.id),
-        "modelName": lora.model_name,
-        "status": map_status(lora.status),
-        "progress": lora.progress,
-        "falLoraUrl": lora.fal_lora_url,
-        "triggerWord": lora.trigger_word,
-        "enableNsfw": lora.enable_nsfw,
-        "createdAt": lora.created_at.isoformat() if lora.created_at else "",
-        "updatedAt": lora.updated_at.isoformat() if lora.updated_at else "",
-    }
+    return await serialize_lora(lora, db)
 
 
 @router.get("/stats")
@@ -153,10 +196,9 @@ async def get_user_stats(
     today = datetime.now(timezone.utc).date()
 
     loras = db.query(LoRAModel).filter(LoRAModel.user_id == user.id).all()
-    for lora in loras:
-        await sync_lora_status(lora, db)
+    serialized_loras = [await serialize_lora(lora, db) for lora in loras]
 
-    ready_loras = [lora for lora in loras if map_status(lora.status) == "ready"]
+    ready_loras = [lora for lora in serialized_loras if lora["status"] == "ready"]
 
     generations = db.query(Generation).filter(Generation.user_id == user.id).all()
     face_swaps = db.query(FaceSwapTask).filter(FaceSwapTask.user_id == user.id).all()
@@ -179,13 +221,14 @@ async def get_user_stats(
 
     recent_activity = []
 
-    for lora in sorted(loras, key=lambda item: item.created_at or datetime.min, reverse=True)[:5]:
+    for lora in sorted(serialized_loras, key=lambda item: item.get("createdAt", ""), reverse=True)[:5]:
         recent_activity.append({
-            "id": f"lora-{lora.id}",
+            "id": f"lora-{lora['loraId']}",
             "type": "identity",
-            "title": lora.model_name,
-            "status": map_status(lora.status),
-            "createdAt": lora.created_at.isoformat() if lora.created_at else "",
+            "title": lora["modelName"],
+            "status": lora["status"],
+            "createdAt": lora["createdAt"],
+            "imageUrl": lora.get("thumbnailUrl"),
         })
 
     for generation in sorted(generations, key=lambda item: item.created_at or datetime.min, reverse=True)[:8]:

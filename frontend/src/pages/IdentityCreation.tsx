@@ -1,10 +1,13 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { Link } from 'react-router-dom'
 import {
   AlertCircle,
   Check,
+  CheckCircle2,
   Key,
   Loader2,
+  Minimize2,
   ShieldAlert,
   Sparkles,
   Upload,
@@ -13,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
+import type { LoRAStatus } from '@/types/api.types'
 import { loraService } from '@/services/lora.service'
 
 interface UploadedFile {
@@ -21,9 +25,47 @@ interface UploadedFile {
   preview: string
 }
 
+interface TrainingSession {
+  loraId: string
+  modelName: string
+  status: LoRAStatus['status']
+  progress: number
+  thumbnailUrl?: string | null
+  previewUrl?: string | null
+  createdAt?: string
+  minimized: boolean
+}
+
 const MIN_PHOTOS = 5
 const MAX_PHOTOS = 20
 const MAX_SIZE_MB = 10
+const TRAINING_STORAGE_KEY = 'area69.identity-training'
+
+function getStorageKey(userId: string) {
+  return `${TRAINING_STORAGE_KEY}.${userId}`
+}
+
+function statusCopy(status: LoRAStatus['status']) {
+  if (status === 'ready') {
+    return {
+      label: 'Ready',
+      description: 'Sua identidade ja esta pronta para gerar imagens no Soul Character.',
+      classes: 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+    }
+  }
+  if (status === 'failed') {
+    return {
+      label: 'Failed',
+      description: 'A criacao falhou. Voce pode revisar as fotos e iniciar novamente.',
+      classes: 'border border-red-500/20 bg-red-500/10 text-red-400',
+    }
+  }
+  return {
+    label: 'Training',
+    description: 'Seu Soul ID esta em treinamento. Voce pode continuar navegando enquanto a plataforma atualiza tudo automaticamente.',
+    classes: 'border border-amber-500/20 bg-amber-500/10 text-amber-300',
+  }
+}
 
 export function IdentityCreation() {
   const [files, setFiles] = useState<UploadedFile[]>([])
@@ -31,10 +73,142 @@ export function IdentityCreation() {
   const [triggerWord, setTriggerWord] = useState('')
   const [enableNsfw, setEnableNsfw] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [trainingSession, setTrainingSession] = useState<TrainingSession | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const notifiedReadyRef = useRef<string | null>(null)
   const { toast } = useToast()
   const userId = useCurrentUserId()
+
+  const persistTrainingSession = useCallback(
+    (session: TrainingSession | null) => {
+      if (!userId) return
+      if (!session) {
+        window.localStorage.removeItem(getStorageKey(userId))
+        return
+      }
+      window.localStorage.setItem(getStorageKey(userId), JSON.stringify(session))
+    },
+    [userId],
+  )
+
+  const hydrateTrainingSession = useCallback(
+    (lora: LoRAStatus, fallbackPreviewUrl?: string | null, minimized = false): TrainingSession => ({
+      loraId: lora.loraId,
+      modelName: lora.modelName,
+      status: lora.status,
+      progress: lora.progress,
+      thumbnailUrl: lora.thumbnailUrl,
+      previewUrl: fallbackPreviewUrl ?? lora.thumbnailUrl ?? lora.referenceMedia?.[0] ?? null,
+      createdAt: lora.createdAt,
+      minimized,
+    }),
+    [],
+  )
+
+  useEffect(() => {
+    if (!userId) return
+
+    const stored = window.localStorage.getItem(getStorageKey(userId))
+    if (stored) {
+      try {
+        setTrainingSession(JSON.parse(stored) as TrainingSession)
+      } catch {
+        window.localStorage.removeItem(getStorageKey(userId))
+      }
+    }
+
+    const bootstrapLatestTraining = async () => {
+      try {
+        const loras = await loraService.getUserLoRAs(userId)
+        const latestPending = loras.find((lora) => lora.status === 'training')
+        if (latestPending) {
+          setTrainingSession((current) =>
+            hydrateTrainingSession(
+              latestPending,
+              current?.previewUrl ?? latestPending.thumbnailUrl ?? latestPending.referenceMedia?.[0] ?? null,
+              current?.minimized ?? false,
+            ),
+          )
+          return
+        }
+
+        const latestReady = loras.find((lora) => lora.status === 'ready')
+        if (latestReady) {
+          setTrainingSession((current) => {
+            if (!current || current.loraId !== latestReady.loraId) return current
+            return hydrateTrainingSession(
+              latestReady,
+              current.previewUrl ?? latestReady.thumbnailUrl ?? latestReady.referenceMedia?.[0] ?? null,
+              current.minimized,
+            )
+          })
+        }
+      } catch {
+        // ignore bootstrap errors
+      }
+    }
+
+    bootstrapLatestTraining()
+  }, [hydrateTrainingSession, userId])
+
+  useEffect(() => {
+    persistTrainingSession(trainingSession)
+  }, [persistTrainingSession, trainingSession])
+
+  useEffect(() => {
+    if (!trainingSession || trainingSession.status === 'ready' || trainingSession.status === 'failed') return
+
+    let mounted = true
+    const poll = async () => {
+      try {
+        const updated = await loraService.getLoRAStatus(trainingSession.loraId)
+        if (!mounted) return
+
+        setTrainingSession((current) => {
+          if (!current || current.loraId !== updated.loraId) return current
+          const next = hydrateTrainingSession(
+            updated,
+            current.previewUrl ?? updated.thumbnailUrl ?? updated.referenceMedia?.[0] ?? null,
+            current.minimized,
+          )
+          return next
+        })
+
+        if (updated.status === 'ready' && notifiedReadyRef.current !== updated.loraId) {
+          notifiedReadyRef.current = updated.loraId
+          toast({
+            title: 'Identidade pronta',
+            description: `${updated.modelName} ja pode ser usada na geracao com Soul Character.`,
+          })
+        }
+
+        if (updated.status === 'failed') {
+          toast({
+            title: 'Treinamento falhou',
+            description: `A identidade ${updated.modelName} nao concluiu com sucesso.`,
+            variant: 'destructive',
+          })
+        }
+      } catch {
+        // ignore transient polling errors
+      }
+    }
+
+    poll()
+    const interval = window.setInterval(poll, 5000)
+
+    return () => {
+      mounted = false
+      window.clearInterval(interval)
+    }
+  }, [hydrateTrainingSession, toast, trainingSession])
+
+  useEffect(() => {
+    return () => {
+      files.forEach((item) => URL.revokeObjectURL(item.preview))
+    }
+  }, [files])
 
   const handleFiles = useCallback(
     (incoming: FileList | null) => {
@@ -76,7 +250,7 @@ export function IdentityCreation() {
       return
     }
 
-    setIsLoading(true)
+    setIsSubmitting(true)
     try {
       const formData = new FormData()
       files.forEach((file) => formData.append('referencePhotos', file.file))
@@ -87,7 +261,7 @@ export function IdentityCreation() {
       const uploadResponse = await loraService.uploadReferencePhotos(formData)
       const referencePhotos = uploadResponse.saved.map((file) => file.path)
 
-      await loraService.createLoRA({
+      const createResponse = await loraService.createLoRA({
         userId,
         modelName,
         triggerWord,
@@ -95,26 +269,53 @@ export function IdentityCreation() {
         referencePhotos,
       })
 
+      if (!createResponse.ok || !createResponse.loraId) {
+        throw new Error(createResponse.message || 'Falha ao iniciar o Soul ID')
+      }
+
+      const newSession: TrainingSession = {
+        loraId: createResponse.loraId,
+        modelName,
+        status: (createResponse.status as LoRAStatus['status']) || 'training',
+        progress: 12,
+        previewUrl: files[0]?.preview ?? null,
+        thumbnailUrl: null,
+        minimized: false,
+        createdAt: new Date().toISOString(),
+      }
+
+      setTrainingSession(newSession)
+      files.forEach((item) => URL.revokeObjectURL(item.preview))
+      setFiles([])
+      setModelName('')
+      setTriggerWord('')
+
       toast({
-        title: 'Sucesso',
-        description: 'Soul ID iniciado. Voce pode acompanhar o status no dashboard.',
+        title: 'Treinamento iniciado',
+        description: 'Seu Soul ID esta sendo preparado. A dashboard e esta tela vao atualizar automaticamente.',
       })
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } } }
+      const err = error as { response?: { data?: { detail?: string } }; message?: string }
       toast({
         title: 'Erro',
-        description: err.response?.data?.detail || 'Falha ao criar identidade',
+        description: err.response?.data?.detail || err.message || 'Falha ao criar identidade',
         variant: 'destructive',
       })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   const isValid = files.length >= MIN_PHOTOS && modelName.trim() && triggerWord.trim()
+  const currentStatusCopy = trainingSession ? statusCopy(trainingSession.status) : null
+  const canShowTrainingCard = Boolean(trainingSession)
+  const representativePreview = useMemo(() => {
+    if (!trainingSession) return null
+    return trainingSession.thumbnailUrl || trainingSession.previewUrl || null
+  }, [trainingSession])
 
   return (
-    <div className="mx-auto max-w-[800px] p-4 sm:p-6 lg:p-8">
+    <div className="mx-auto max-w-[860px] p-4 sm:p-6 lg:p-8">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -123,6 +324,110 @@ export function IdentityCreation() {
       >
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Criar Nova Identidade</h1>
       </motion.div>
+
+      <AnimatePresence>
+        {canShowTrainingCard && trainingSession && currentStatusCopy && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-red-600/[0.12] via-white/[0.02] to-transparent shadow-[0_16px_60px_rgba(0,0,0,0.45)]"
+          >
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-red-400" />
+                <span className="text-sm font-semibold text-white">Treinamento da identidade</span>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setTrainingSession((current) =>
+                    current ? { ...current, minimized: !current.minimized } : current,
+                  )
+                }
+                className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-semibold text-gray-300 transition hover:bg-white/[0.06]"
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+                {trainingSession.minimized ? 'Expandir' : 'Minimizar'}
+              </button>
+            </div>
+
+            {!trainingSession.minimized && (
+              <div className="grid gap-5 p-5 sm:grid-cols-[140px,1fr] sm:p-6">
+                <div className="relative h-36 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
+                  {representativePreview ? (
+                    <img src={representativePreview} alt={trainingSession.modelName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <User className="h-8 w-8 text-gray-500" />
+                    </div>
+                  )}
+                  {trainingSession.status === 'training' && (
+                    <div className="absolute inset-0 bg-black/45">
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Loader2 className="h-7 w-7 animate-spin text-white" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-bold text-white">{trainingSession.modelName}</h2>
+                    <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wider ${currentStatusCopy.classes}`}>
+                      {trainingSession.status === 'training' ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                      {currentStatusCopy.label}
+                    </span>
+                  </div>
+
+                  <p className="max-w-[580px] text-sm leading-relaxed text-gray-300">{currentStatusCopy.description}</p>
+
+                  <div className="mt-5">
+                    <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-gray-400">
+                      <span>Status em tempo real</span>
+                      <span>{trainingSession.status === 'ready' ? 'Concluido' : 'Atualizando automaticamente'}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                      {trainingSession.status === 'training' ? (
+                        <motion.div
+                          className="h-full rounded-full bg-gradient-to-r from-red-500 via-red-400 to-orange-300"
+                          initial={{ width: '14%' }}
+                          animate={{ width: ['22%', '65%', '44%', '82%'] }}
+                          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                      ) : (
+                        <div className="h-full w-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <Link
+                      to="/dashboard"
+                      className="inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/[0.16] hover:bg-white/[0.06]"
+                    >
+                      Ir para dashboard
+                    </Link>
+                    {trainingSession.status === 'ready' ? (
+                      <Link
+                        to="/generate"
+                        className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.32)] transition hover:-translate-y-0.5 hover:bg-red-700"
+                      >
+                        Usar no Soul Character
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Pode minimizar e continuar navegando
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <motion.form
         onSubmit={handleSubmit}
@@ -258,7 +563,7 @@ export function IdentityCreation() {
             type="text"
             value={triggerWord}
             onChange={(event) => setTriggerWord(event.target.value)}
-            placeholder="Palavra que ativa o LoRA"
+            placeholder="Palavra que ativa a identidade"
             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-gray-600 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_1px_0_rgba(255,255,255,0.02)] focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_0_20px_rgba(220,38,38,0.06)]"
           />
           <p className="ml-0.5 mt-1.5 text-[11px] text-gray-600">Use uma palavra unica que nao apareca em prompts normais.</p>
@@ -292,25 +597,25 @@ export function IdentityCreation() {
             </div>
           </div>
           <p className="ml-[60px] mt-2 text-[11px] text-gray-600">
-            Esta flag e critica e prepara o modelo para conteudo explicito.
+            Esta flag prepara o modelo para conteudo explicito quando voce usar o Soul Character.
           </p>
         </div>
 
         <motion.button
           type="submit"
-          disabled={!isValid || isLoading}
-          whileHover={isValid && !isLoading ? { scale: 1.01, y: -1 } : {}}
-          whileTap={isValid && !isLoading ? { scale: 0.98 } : {}}
+          disabled={!isValid || isSubmitting}
+          whileHover={isValid && !isSubmitting ? { scale: 1.01, y: -1 } : {}}
+          whileTap={isValid && !isSubmitting ? { scale: 0.98 } : {}}
           className={`flex items-center justify-center gap-2.5 rounded-xl px-8 py-3.5 text-sm font-semibold tracking-wide transition-all duration-300 ${
-            isValid && !isLoading
+            isValid && !isSubmitting
               ? 'cursor-pointer bg-red-600 text-white shadow-[0_4px_20px_rgba(220,38,38,0.35),0_0_60px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-red-700 hover:shadow-[0_6px_30px_rgba(220,38,38,0.45),0_0_80px_rgba(220,38,38,0.12),inset_0_1px_0_rgba(255,255,255,0.15)]'
               : 'cursor-not-allowed bg-red-600/30 text-white/40 shadow-none'
           }`}
         >
-          {isLoading ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Treinando modelo...
+              Criando Soul ID...
             </>
           ) : (
             <>
