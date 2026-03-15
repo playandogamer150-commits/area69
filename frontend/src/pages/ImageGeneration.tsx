@@ -107,7 +107,7 @@ function normalizeGenerationUrls(response: { imageUrls?: string[]; imageUrl?: st
 
 export function ImageGeneration() {
   const [prompt, setPrompt] = useState('')
-  const [selectedLoRA, setSelectedLoRA] = useState('')
+  const [selectedReferenceId, setSelectedReferenceId] = useState('')
   const [aspectRatio, setAspectRatio] = useState<GenerationRequest['aspectRatio']>('9:16')
   const [resolution, setResolution] = useState<GenerationRequest['resolution']>('1080p')
   const [resultImages, setResultImages] = useState<GenerationRequest['resultImages']>(1)
@@ -153,8 +153,8 @@ export function ImageGeneration() {
   }, [])
 
   const selectedIdentity = useMemo(
-    () => loras.find((item) => item.modelName === selectedLoRA) || null,
-    [loras, selectedLoRA],
+    () => loras.find((item) => item.referenceId === selectedReferenceId) || null,
+    [loras, selectedReferenceId],
   )
 
   const readyLoras = useMemo(() => loras.filter((item) => item.status === 'ready'), [loras])
@@ -329,11 +329,17 @@ export function ImageGeneration() {
             <div className="space-y-5">
               <Select
                 label="Modelo Soul Character"
-                value={selectedLoRA}
-                onChange={setSelectedLoRA}
+                value={selectedReferenceId}
+                onChange={setSelectedReferenceId}
                 options={
                   readyLoras.length > 0
-                    ? [{ value: '', label: 'Selecionar identidade' }, ...readyLoras.map((item) => ({ value: item.modelName, label: item.modelName }))]
+                    ? [
+                        { value: '', label: 'Selecionar identidade' },
+                        ...readyLoras.map((item) => ({
+                          value: item.referenceId ?? item.loraId,
+                          label: item.modelName,
+                        })),
+                      ]
                     : [{ value: '', label: 'Nenhuma identidade pronta ainda', disabled: true }]
                 }
               />
