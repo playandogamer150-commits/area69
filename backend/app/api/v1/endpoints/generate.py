@@ -69,6 +69,12 @@ def build_prompt(request: GenerationRequest, trigger_word: str) -> str:
     return ", ".join([base_prompt, *realism_parts])
 
 
+def build_soul_character_prompt(request: GenerationRequest) -> str:
+    # Soul Character already receives the trained character plus prompt enhancement
+    # on the provider side, so injecting the old LoRA trigger word hurts identity fidelity.
+    return request.prompt.strip()
+
+
 def is_soul_identity(lora: LoRAModel) -> bool:
     return bool(lora.fal_lora_url and lora.fal_lora_url.startswith("soul-id:"))
 
@@ -182,7 +188,7 @@ async def generate_image(
         )
     
     try:
-        enhanced_prompt = build_prompt(request, lora.trigger_word)
+        enhanced_prompt = build_soul_character_prompt(request) if is_soul_identity(lora) else build_prompt(request, lora.trigger_word)
         aspect_ratio = validated_aspect_ratio(request.aspectRatio)
         resolution = validated_resolution(request.resolution)
         result_images = validated_result_images(request.resultImages)
