@@ -100,7 +100,7 @@ class HiggsfieldService:
             "character_strength": 1,
             "result_images": result_images,
             "enhance_prompt": True,
-            "seed": random.randint(1, 2_147_483_647),
+            "seed": random.randint(1, 1_000_000),
         }
         normalized_reference_urls = [
             url.strip()
