@@ -102,10 +102,13 @@ class HiggsfieldService:
             "enhance_prompt": True,
             "seed": random.randint(1, 2_147_483_647),
         }
-        normalized_reference_urls = [url for url in (reference_image_urls or []) if url]
+        normalized_reference_urls = [
+            url.strip()
+            for url in (reference_image_urls or [])
+            if isinstance(url, str) and url.strip().startswith("http")
+        ][:5]
         if normalized_reference_urls:
             body["image_reference_urls"] = normalized_reference_urls
-            body["image_reference_url"] = normalized_reference_urls[0]
         return await self._request(
             "POST",
             "/higgsfield-ai/soul/character",
