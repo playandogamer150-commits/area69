@@ -158,14 +158,6 @@ export function ImageGeneration() {
   )
 
   const readyLoras = useMemo(() => loras.filter((item) => item.status === 'ready'), [loras])
-  const automaticIdentityReferenceUrls = useMemo(
-    () =>
-      (selectedIdentity?.referenceMedia ?? [])
-        .filter((url): url is string => typeof url === 'string' && url.trim().startsWith('http'))
-        .slice(0, MAX_REFERENCE_IMAGES),
-    [selectedIdentity],
-  )
-
   const pollStatus = async (taskId: string) => {
     try {
       const response = await generateService.getGenerationStatus(taskId)
@@ -262,11 +254,6 @@ export function ImageGeneration() {
       const manualReferenceUrls = referenceImages
         .map((image) => image.publicUrl)
         .filter((url): url is string => typeof url === 'string' && url.trim().startsWith('http'))
-      const mergedReferenceUrls = Array.from(new Set([...manualReferenceUrls, ...automaticIdentityReferenceUrls])).slice(
-        0,
-        MAX_REFERENCE_IMAGES,
-      )
-
       const response = await generateService.generateImage({
         prompt,
         loraName: selectedIdentity.modelName,
@@ -274,7 +261,7 @@ export function ImageGeneration() {
         aspectRatio,
         resolution,
         resultImages,
-        referenceImageUrls: mergedReferenceUrls,
+        referenceImageUrls: manualReferenceUrls,
       })
 
       const urls = normalizeGenerationUrls(response)
@@ -435,9 +422,6 @@ export function ImageGeneration() {
 
                 <p className="mt-2 text-[11px] text-gray-600">
                   Use ate {MAX_REFERENCE_IMAGES} imagens para guiar roupa, enquadramento, maquiagem ou clima da cena.
-                </p>
-                <p className="mt-1 text-[11px] text-gray-500">
-                  As fotos-base da identidade pronta tambem sao reaproveitadas automaticamente para reforcar a consistencia do rosto.
                 </p>
 
                 {referenceImages.length > 0 && (

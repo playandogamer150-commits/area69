@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from typing import Any
-import random
 
 import httpx
 
@@ -9,6 +8,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+REALISTIC_STYLE_ID = "1cb4b936-77bf-4f9a-9039-f3d349a4cdbe"
 
 
 class HiggsfieldService:
@@ -85,30 +85,34 @@ class HiggsfieldService:
         *,
         prompt: str,
         character_id: str,
-        aspect_ratio: str,
-        resolution: str,
+        character_name: str,
+        width: int,
+        height: int,
         result_images: int,
         reference_image_urls: list[str] | None = None,
     ) -> dict[str, Any]:
-        body = {
-            "prompt": prompt,
-            "aspect_ratio": aspect_ratio,
-            "resolution": resolution,
-            "soul_style": "realistic",
-            "style_strength": 1,
-            "character_id": character_id,
-            "character_strength": 1,
-            "result_images": result_images,
-            "enhance_prompt": True,
-            "seed": random.randint(1, 1_000_000),
-        }
         normalized_reference_urls = [
             url.strip()
             for url in (reference_image_urls or [])
             if isinstance(url, str) and url.strip().startswith("http")
         ][:5]
-        if normalized_reference_urls:
-            body["image_reference_urls"] = normalized_reference_urls
+
+        body = {
+            "prompt": prompt,
+            "width": width,
+            "height": height,
+            "enhance_prompt": False,
+            "style_id": REALISTIC_STYLE_ID,
+            "style_strength": 1,
+            "custom_reference": {
+                "id": character_id,
+                "name": character_name,
+            },
+            "image_reference": normalized_reference_urls[0] if normalized_reference_urls else None,
+        }
+        if result_images != 1:
+            body["result_images"] = result_images
+        logger.info("Soul Character payload: %s", body)
         return await self._request(
             "POST",
             "/higgsfield-ai/soul/character",

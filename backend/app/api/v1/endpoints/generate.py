@@ -202,8 +202,9 @@ async def generate_image(
             result = await soul_service.create_soul_character_image(
                 prompt=enhanced_prompt,
                 character_id=soul_id,
-                aspect_ratio=aspect_ratio,
-                resolution=resolution,
+                character_name=lora.model_name,
+                width=width,
+                height=height,
                 result_images=result_images,
                 reference_image_urls=request.referenceImageUrls,
             )
