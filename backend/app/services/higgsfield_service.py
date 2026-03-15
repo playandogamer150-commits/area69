@@ -101,7 +101,7 @@ class HiggsfieldService:
             "prompt": prompt,
             "width": width,
             "height": height,
-            "enhance_prompt": False,
+            "enhance_prompt": True,
             "style_id": REALISTIC_STYLE_ID,
             "style_strength": 1,
             "custom_reference": {
