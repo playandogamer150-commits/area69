@@ -104,15 +104,32 @@ def validated_result_images(value: int) -> int:
 
 
 def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, int]:
-    longest_edge = 1920 if resolution == "1080p" else 1280
-    width_ratio, height_ratio = map(int, aspect_ratio.split(":"))
-    if width_ratio >= height_ratio:
-        width = longest_edge
-        height = int(round(longest_edge * height_ratio / width_ratio))
-    else:
-        height = longest_edge
-        width = int(round(longest_edge * width_ratio / height_ratio))
-    return width, height
+    # Match the Soul Character playground sizing as closely as possible.
+    dimensions_map = {
+        "1080p": {
+            "9:16": (1152, 2048),
+            "16:9": (2048, 1152),
+            "4:3": (1536, 1152),
+            "3:4": (1152, 1536),
+            "1:1": (1536, 1536),
+            "2:3": (1152, 1728),
+            "3:2": (1728, 1152),
+        },
+        "720p": {
+            "9:16": (768, 1365),
+            "16:9": (1365, 768),
+            "4:3": (1024, 768),
+            "3:4": (768, 1024),
+            "1:1": (1024, 1024),
+            "2:3": (768, 1152),
+            "3:2": (1152, 768),
+        },
+    }
+
+    return dimensions_map.get(resolution, dimensions_map["1080p"]).get(
+        aspect_ratio,
+        dimensions_map["1080p"]["9:16"],
+    )
 
 
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
@@ -162,20 +179,29 @@ async def generate_image(
         request.resultImages,
         len(request.referenceImageUrls),
     )
-    lora_query = db.query(LoRAModel).filter(
-        LoRAModel.user_id == current_user.id,
-        LoRAModel.model_name == request.loraName,
-    )
-
     if request.characterId:
-        lora_query = lora_query.filter(
-            or_(
-                LoRAModel.fal_lora_url == f"soul-id:{request.characterId}",
-                LoRAModel.fal_lora_url == request.characterId,
+        lora = (
+            db.query(LoRAModel)
+            .filter(
+                LoRAModel.user_id == current_user.id,
+                or_(
+                    LoRAModel.fal_lora_url == f"soul-id:{request.characterId}",
+                    LoRAModel.fal_lora_url == request.characterId,
+                ),
             )
+            .order_by(LoRAModel.created_at.desc())
+            .first()
         )
-
-    lora = lora_query.order_by(LoRAModel.created_at.desc()).first()
+    else:
+        lora = (
+            db.query(LoRAModel)
+            .filter(
+                LoRAModel.user_id == current_user.id,
+                LoRAModel.model_name == request.loraName,
+            )
+            .order_by(LoRAModel.created_at.desc())
+            .first()
+        )
     
     if not lora:
         raise HTTPException(status_code=404, detail="LoRA not found")
