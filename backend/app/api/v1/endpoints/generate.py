@@ -233,6 +233,11 @@ async def generate_image(
                 for url in request.referenceImageUrls
                 if isinstance(url, str) and url.strip().startswith("http")
             ][:5]
+            logger.info(
+                "[Generate] Soul Character reference handling: manual_reference_count=%s include_image_reference=%s",
+                len(reference_image_urls),
+                bool(reference_image_urls),
+            )
             result = await soul_service.create_soul_character_image(
                 prompt=enhanced_prompt,
                 character_id=soul_id,
