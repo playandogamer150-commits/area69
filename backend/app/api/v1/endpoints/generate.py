@@ -34,6 +34,7 @@ from app.services.replicate_service import ReplicateService
 from app.services.r2_storage import R2Storage
 from app.services.wavespeed_service import WaveSpeedService
 from app.core.security import get_current_licensed_user
+from app.storage import validate_user_storage_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -477,23 +478,38 @@ async def generate_image_edit(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_licensed_user),
 ):
-    wave_svc = WaveSpeedService()
-    if not wave_svc.api_key:
-        raise HTTPException(status_code=500, detail="WaveSpeed API key nao configurada")
+    allowed_prefixes = (
+        f"/storage/{current_user.id}/image-edits/",
+    )
     if not request.images:
         raise HTTPException(status_code=400, detail="Envie ao menos uma imagem para edicao")
 
     if request.userId.strip() != str(current_user.id):
         raise HTTPException(status_code=403, detail="User mismatch")
 
+    normalized_paths = [
+        validate_user_storage_path(
+            image_path,
+            current_user,
+            allowed_prefixes=allowed_prefixes,
+        )
+        for image_path in request.images
+    ]
+
+    wave_svc = WaveSpeedService()
+    if not wave_svc.api_key:
+        raise HTTPException(status_code=500, detail="WaveSpeed API key nao configurada")
+
     uploaded_urls: list[str] = []
     async with httpx.AsyncClient(timeout=120.0) as client:
-        for image_path in request.images:
-            source_response = await client.get(f"{settings.internal_api_base_url}{image_path}")
+        for normalized_path in normalized_paths:
+            source_response = await client.get(f"{settings.internal_api_base_url}{normalized_path}")
             if source_response.status_code != 200:
-                raise HTTPException(status_code=400, detail=f"Falha ao ler imagem: {image_path}")
-            file_name = image_path.rsplit("/", 1)[-1]
+                raise HTTPException(status_code=400, detail=f"Falha ao ler imagem: {normalized_path}")
+            file_name = normalized_path.rsplit("/", 1)[-1]
             content_type = source_response.headers.get("content-type", "image/jpeg")
+            if not content_type.startswith("image/"):
+                raise HTTPException(status_code=400, detail="Arquivo informado nao e uma imagem valida")
             upload_result = await wave_svc.upload_binary(source_response.content, file_name, content_type)
             if upload_result.get("error"):
                 raise HTTPException(status_code=500, detail=upload_result["error"])
