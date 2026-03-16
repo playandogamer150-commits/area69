@@ -41,9 +41,6 @@ router = APIRouter()
 VALID_ASPECT_RATIOS = {"9:16", "16:9", "4:3", "3:4", "1:1", "2:3", "3:2"}
 VALID_RESOLUTIONS = {"720p", "1080p"}
 VALID_RESULT_IMAGES = {1, 4}
-SOUL_DEFAULT_ASPECT_RATIO = "9:16"
-SOUL_DEFAULT_RESOLUTION = "1080p"
-SOUL_REFERENCE_IMAGE_LIMIT = 5
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -135,37 +132,6 @@ def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, in
     )
 
 
-def resolve_soul_dimensions(_: GenerationRequest) -> tuple[int, int]:
-    """Use the canonical Soul Character portrait sizing for maximum realism parity."""
-    return aspect_ratio_dimensions(SOUL_DEFAULT_ASPECT_RATIO, SOUL_DEFAULT_RESOLUTION)
-
-
-def extract_reference_media_urls(reference: dict[str, object]) -> list[str]:
-    reference_media = reference.get("reference_media")
-    if not isinstance(reference_media, list):
-        return []
-
-    urls: list[str] = []
-    for media in reference_media:
-        if not isinstance(media, dict):
-            continue
-        media_url = media.get("media_url")
-        if isinstance(media_url, str) and media_url.strip():
-            urls.append(media_url.strip())
-    return urls
-
-
-def merge_reference_image_urls(manual_urls: list[str], fallback_urls: list[str], limit: int = SOUL_REFERENCE_IMAGE_LIMIT) -> list[str]:
-    merged: list[str] = []
-    for url in [*manual_urls, *fallback_urls]:
-        normalized = url.strip()
-        if not normalized or normalized in merged:
-            continue
-        merged.append(normalized)
-        if len(merged) >= limit:
-            break
-    return merged
-
 
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
     if entity_user_id != current_user.id:
@@ -253,11 +219,7 @@ async def generate_image(
         aspect_ratio = validated_aspect_ratio(request.aspectRatio)
         resolution = validated_resolution(request.resolution)
         result_images = validated_result_images(request.resultImages)
-        width, height = (
-            resolve_soul_dimensions(request)
-            if is_soul_identity(lora)
-            else aspect_ratio_dimensions(aspect_ratio, resolution)
-        )
+        width, height = aspect_ratio_dimensions(aspect_ratio, resolution)
         logger.info("[Generate] enhanced prompt: %s", enhanced_prompt)
         if is_soul_identity(lora):
             soul_service = HiggsfieldService()
@@ -266,18 +228,17 @@ async def generate_image(
             if request.characterId and lora_soul_id and request.characterId != lora_soul_id:
                 raise HTTPException(status_code=400, detail="Character ID nao corresponde a identidade selecionada")
 
-            fallback_reference_urls: list[str] = []
-            if not request.referenceImageUrls:
-                reference = await soul_service.get_soul_id(soul_id)
-                fallback_reference_urls = extract_reference_media_urls(reference)
-
-            reference_image_urls = merge_reference_image_urls(request.referenceImageUrls, fallback_reference_urls)
+            reference_image_urls = [
+                url.strip()
+                for url in request.referenceImageUrls
+                if isinstance(url, str) and url.strip().startswith("http")
+            ][:5]
             result = await soul_service.create_soul_character_image(
                 prompt=enhanced_prompt,
                 character_id=soul_id,
                 character_name=lora.model_name,
-                width=width,
-                height=height,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
                 result_images=result_images,
                 reference_image_urls=reference_image_urls,
             )
