@@ -41,8 +41,6 @@ router = APIRouter()
 VALID_ASPECT_RATIOS = {"9:16", "16:9", "4:3", "3:4", "1:1", "2:3", "3:2"}
 VALID_RESOLUTIONS = {"720p", "1080p"}
 VALID_RESULT_IMAGES = {1, 4}
-SOUL_DEFAULT_ASPECT_RATIO = "9:16"
-SOUL_DEFAULT_RESOLUTION = "1080p"
 SOUL_REFERENCE_IMAGE_LIMIT = 5
 
 
@@ -133,11 +131,6 @@ def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, in
         aspect_ratio,
         dimensions_map["1080p"]["9:16"],
     )
-
-
-def resolve_soul_dimensions(_: GenerationRequest) -> tuple[int, int]:
-    """Use the canonical Soul Character portrait sizing for maximum realism parity."""
-    return aspect_ratio_dimensions(SOUL_DEFAULT_ASPECT_RATIO, SOUL_DEFAULT_RESOLUTION)
 
 
 def extract_reference_media_urls(reference: dict[str, object]) -> list[str]:
@@ -253,11 +246,7 @@ async def generate_image(
         aspect_ratio = validated_aspect_ratio(request.aspectRatio)
         resolution = validated_resolution(request.resolution)
         result_images = validated_result_images(request.resultImages)
-        width, height = (
-            resolve_soul_dimensions(request)
-            if is_soul_identity(lora)
-            else aspect_ratio_dimensions(aspect_ratio, resolution)
-        )
+        width, height = aspect_ratio_dimensions(aspect_ratio, resolution)
         logger.info("[Generate] enhanced prompt: %s", enhanced_prompt)
         if is_soul_identity(lora):
             soul_service = HiggsfieldService()
@@ -276,8 +265,8 @@ async def generate_image(
                 prompt=enhanced_prompt,
                 character_id=soul_id,
                 character_name=lora.model_name,
-                width=width,
-                height=height,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
                 result_images=result_images,
                 reference_image_urls=reference_image_urls,
             )
