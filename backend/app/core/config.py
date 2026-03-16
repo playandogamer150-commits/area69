@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = Field(..., env="JWT_SECRET_KEY")
     ALGORITHM: str = Field("HS256", env="ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    REPLICATE_WEBHOOK_SECRET: str | None = Field(default=None, env="REPLICATE_WEBHOOK_SECRET")
+    FAL_WEBHOOK_SECRET: str | None = Field(default=None, env="FAL_WEBHOOK_SECRET")
+    EFI_WEBHOOK_SECRET: str | None = Field(default=None, env="EFI_WEBHOOK_SECRET")
 
     # Efi Pix
     EFI_CLIENT_ID: str | None = Field(default=None, env="EFI_CLIENT_ID")
@@ -71,6 +74,10 @@ class Settings(BaseSettings):
     def allowed_hosts_list(self) -> list[str]:
         hosts = [host.strip() for host in self.ALLOWED_HOSTS.split(",") if host.strip()]
         return hosts or ["localhost", "127.0.0.1"]
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() == "production"
 
 
 @lru_cache

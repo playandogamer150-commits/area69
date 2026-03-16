@@ -6,6 +6,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
+import logging
+
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,7 @@ from app.core.security import create_access_token, create_refresh_token, get_cur
 from app.models.database import LicenseKey, User, get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 
 class RegisterRequest(BaseModel):
@@ -165,9 +168,10 @@ async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         db.refresh(user)
     except SQLAlchemyError as exc:
         db.rollback()
+        logger.exception("Failed to create user")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao criar usuario no banco de dados: {exc}",
+            detail="Erro ao criar usuario no banco de dados",
         ) from exc
 
     access_token = create_access_token(

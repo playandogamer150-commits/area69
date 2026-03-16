@@ -17,7 +17,9 @@ const USER_KEY = 'current_user'
 
 export function setSession(accessToken: string, refreshToken: string | null, user: SessionUser) {
   localStorage.setItem(TOKEN_KEY, accessToken)
-  if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  if (refreshToken) {
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+  }
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
