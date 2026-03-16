@@ -4,6 +4,7 @@ import logging
 import re
 import uuid
 from datetime import datetime
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -41,6 +42,8 @@ router = APIRouter()
 VALID_ASPECT_RATIOS = {"9:16", "16:9", "4:3", "3:4", "1:1", "2:3", "3:2"}
 VALID_RESOLUTIONS = {"720p", "1080p"}
 VALID_RESULT_IMAGES = {1, 4}
+SOUL_DEFAULT_ASPECT_RATIO = "9:16"
+SOUL_DEFAULT_RESOLUTION = "1080p"
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -132,6 +135,35 @@ def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, in
     )
 
 
+def resolve_soul_dimensions(_: GenerationRequest) -> tuple[int, int]:
+    """Use the canonical Soul Character portrait sizing for maximum realism parity."""
+    return aspect_ratio_dimensions(SOUL_DEFAULT_ASPECT_RATIO, SOUL_DEFAULT_RESOLUTION)
+
+
+def resolve_soul_character_id(request_character_id: str | None, lora_soul_id: str) -> str:
+    def normalize(raw_value: str | None) -> str:
+        normalized = (raw_value or "").strip()
+        if normalized.startswith("soul-id:"):
+            normalized = normalized.split(":", 1)[1].strip()
+        return normalized
+
+    normalized_request_id = normalize(request_character_id)
+    normalized_lora_id = normalize(lora_soul_id)
+
+    if normalized_request_id and normalized_request_id != normalized_lora_id:
+        raise HTTPException(status_code=400, detail="Character ID nao corresponde a identidade selecionada")
+    if normalized_request_id:
+        normalized_lora_id = normalized_request_id
+
+    if not normalized_lora_id:
+        raise HTTPException(status_code=400, detail="Character ID da identidade selecionada esta vazio")
+
+    try:
+        return str(UUID(normalized_lora_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Character ID da identidade selecionada e invalido") from exc
+
+
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
     if entity_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Resource does not belong to the current user")
@@ -218,17 +250,30 @@ async def generate_image(
         aspect_ratio = validated_aspect_ratio(request.aspectRatio)
         resolution = validated_resolution(request.resolution)
         result_images = validated_result_images(request.resultImages)
-        width, height = aspect_ratio_dimensions(aspect_ratio, resolution)
+        width, height = (
+            resolve_soul_dimensions(request)
+            if is_soul_identity(lora)
+            else aspect_ratio_dimensions(aspect_ratio, resolution)
+        )
         logger.info("[Generate] enhanced prompt: %s", enhanced_prompt)
         if is_soul_identity(lora):
             soul_service = HiggsfieldService()
-            soul_id = extract_soul_id(lora)
-            if request.characterId and request.characterId != soul_id:
-                raise HTTPException(status_code=400, detail="Character ID nao corresponde a identidade selecionada")
+            lora_soul_id = extract_soul_id(lora)
+            soul_id = resolve_soul_character_id(request.characterId, lora_soul_id)
+            soul_reference = await soul_service.get_soul_id(soul_id)
+            if soul_reference.get("error"):
+                raise HTTPException(
+                    status_code=soul_reference.get("status_code", 502),
+                    detail="Nao foi possivel validar o Soul ID selecionado no Higgsfield",
+                )
+            canonical_soul_id = resolve_soul_character_id(soul_reference.get("id"), soul_id)
+            canonical_soul_name = (soul_reference.get("name") or lora.model_name or "").strip()
+            if not canonical_soul_name:
+                canonical_soul_name = f"soul-{canonical_soul_id[:8]}"
             result = await soul_service.create_soul_character_image(
                 prompt=enhanced_prompt,
-                character_id=soul_id,
-                character_name=lora.model_name,
+                character_id=canonical_soul_id,
+                character_name=canonical_soul_name,
                 width=width,
                 height=height,
                 result_images=result_images,
