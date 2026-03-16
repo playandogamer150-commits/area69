@@ -43,6 +43,7 @@ VALID_RESOLUTIONS = {"720p", "1080p"}
 VALID_RESULT_IMAGES = {1, 4}
 SOUL_DEFAULT_ASPECT_RATIO = "9:16"
 SOUL_DEFAULT_RESOLUTION = "1080p"
+SOUL_REFERENCE_IMAGE_LIMIT = 5
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -137,6 +138,33 @@ def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, in
 def resolve_soul_dimensions(_: GenerationRequest) -> tuple[int, int]:
     """Use the canonical Soul Character portrait sizing for maximum realism parity."""
     return aspect_ratio_dimensions(SOUL_DEFAULT_ASPECT_RATIO, SOUL_DEFAULT_RESOLUTION)
+
+
+def extract_reference_media_urls(reference: dict[str, object]) -> list[str]:
+    reference_media = reference.get("reference_media")
+    if not isinstance(reference_media, list):
+        return []
+
+    urls: list[str] = []
+    for media in reference_media:
+        if not isinstance(media, dict):
+            continue
+        media_url = media.get("media_url")
+        if isinstance(media_url, str) and media_url.strip():
+            urls.append(media_url.strip())
+    return urls
+
+
+def merge_reference_image_urls(manual_urls: list[str], fallback_urls: list[str], limit: int = SOUL_REFERENCE_IMAGE_LIMIT) -> list[str]:
+    merged: list[str] = []
+    for url in [*manual_urls, *fallback_urls]:
+        normalized = url.strip()
+        if not normalized or normalized in merged:
+            continue
+        merged.append(normalized)
+        if len(merged) >= limit:
+            break
+    return merged
 
 
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
@@ -237,6 +265,13 @@ async def generate_image(
             soul_id = (request.characterId or "").strip() or lora_soul_id
             if request.characterId and lora_soul_id and request.characterId != lora_soul_id:
                 raise HTTPException(status_code=400, detail="Character ID nao corresponde a identidade selecionada")
+
+            fallback_reference_urls: list[str] = []
+            if not request.referenceImageUrls:
+                reference = await soul_service.get_soul_id(soul_id)
+                fallback_reference_urls = extract_reference_media_urls(reference)
+
+            reference_image_urls = merge_reference_image_urls(request.referenceImageUrls, fallback_reference_urls)
             result = await soul_service.create_soul_character_image(
                 prompt=enhanced_prompt,
                 character_id=soul_id,
@@ -244,7 +279,7 @@ async def generate_image(
                 width=width,
                 height=height,
                 result_images=result_images,
-                reference_image_urls=request.referenceImageUrls,
+                reference_image_urls=reference_image_urls,
             )
             logger.info("[Generate] Higgsfield result: %s", result)
         else:
