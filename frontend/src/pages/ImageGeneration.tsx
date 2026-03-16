@@ -500,7 +500,7 @@ export function ImageGeneration() {
               )}
             </div>
 
-            <div className="relative aspect-[4/5] bg-black/20">
+            <div className="relative flex min-h-[360px] items-center justify-center bg-black/30 p-4 sm:min-h-[420px] sm:p-6 lg:max-h-[72vh]">
               {isGenerating ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
                   <div className="relative">
@@ -525,7 +525,7 @@ export function ImageGeneration() {
                   transition={{ duration: 0.5 }}
                   src={activePreviewImage}
                   alt="Imagem gerada"
-                  className="h-full w-full object-cover"
+                  className="max-h-[68vh] w-auto max-w-full rounded-xl object-contain shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
                 />
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6">
