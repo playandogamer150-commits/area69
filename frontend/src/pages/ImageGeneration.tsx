@@ -3,8 +3,10 @@ import { motion } from 'motion/react'
 import {
   CheckCircle2,
   ChevronDown,
+  Download,
   ImageIcon,
   Loader2,
+  Save,
   Sparkles,
   Upload,
   User,
@@ -17,6 +19,7 @@ import type { GenerateReferenceImagesUploadResponse, GenerationRequest, LoRAStat
 import { loraService } from '@/services/lora.service'
 import { generateService } from '@/services/generate.service'
 import { getApiErrorMessage } from '@/utils/api-error'
+import { type ImageEditHistoryItem, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
 
 const ASPECT_RATIOS: GenerationRequest['aspectRatio'][] = ['9:16', '16:9', '4:3', '3:4', '1:1', '2:3', '3:2']
 const RESOLUTIONS: GenerationRequest['resolution'][] = ['720p', '1080p']
@@ -115,6 +118,8 @@ export function ImageGeneration() {
   const [isUploadingReferences, setIsUploadingReferences] = useState(false)
   const [generatedImages, setGeneratedImages] = useState<string[]>([])
   const [activePreviewImage, setActivePreviewImage] = useState<string | null>(null)
+  const [latestGenerationTaskId, setLatestGenerationTaskId] = useState<string | null>(null)
+  const [savedToGallery, setSavedToGallery] = useState(false)
   const [loras, setLoras] = useState<LoRAStatus[]>([])
   const [referenceImages, setReferenceImages] = useState<UploadedReferenceImage[]>([])
   const { toast } = useToast()
@@ -166,6 +171,8 @@ export function ImageGeneration() {
       if (response.status === 'completed' && urls.length > 0) {
         setGeneratedImages(urls)
         setActivePreviewImage(urls[0])
+        setLatestGenerationTaskId(taskId)
+        setSavedToGallery(false)
         setIsGenerating(false)
         if (pollingRef.current) clearInterval(pollingRef.current)
         toast({ title: 'Sucesso', description: 'Imagem gerada com sucesso no Soul Character.' })
@@ -249,6 +256,8 @@ export function ImageGeneration() {
     setIsGenerating(true)
     setGeneratedImages([])
     setActivePreviewImage(null)
+    setLatestGenerationTaskId(null)
+    setSavedToGallery(false)
 
     try {
       const manualReferenceUrls = referenceImages
@@ -269,6 +278,8 @@ export function ImageGeneration() {
       if (response.status === 'completed' && urls.length > 0) {
         setGeneratedImages(urls)
         setActivePreviewImage(urls[0])
+        setLatestGenerationTaskId(response.taskId)
+        setSavedToGallery(false)
         setIsGenerating(false)
         toast({ title: 'Sucesso', description: 'Imagem gerada com sucesso no Soul Character.' })
       } else if (response.taskId) {
@@ -290,6 +301,30 @@ export function ImageGeneration() {
         variant: 'destructive',
       })
     }
+  }
+
+  const handleSaveToGallery = () => {
+    if (!generatedImages.length || !latestGenerationTaskId) return
+
+    const createdAt = new Date().toISOString()
+    const nextItems: ImageEditHistoryItem[] = generatedImages.map((imageUrl, index) => ({
+      id: `${latestGenerationTaskId}-${index}`,
+      imageUrl,
+      prompt,
+      size: `${resolution} · ${aspectRatio}`,
+      createdAt,
+      favorite: false,
+    }))
+
+    const existingItems = loadImageEditHistory()
+    const existingIds = new Set(nextItems.map((item) => item.id))
+    const dedupedItems = existingItems.filter((item) => !existingIds.has(item.id))
+    saveImageEditHistory([...nextItems, ...dedupedItems].slice(0, 24))
+    setSavedToGallery(true)
+    toast({
+      title: 'Salvo na galeria',
+      description: `${nextItems.length} imagem(ns) adicionada(s) na galeria.`,
+    })
   }
 
   const canGenerate = Boolean(prompt.trim() && selectedIdentity?.status === 'ready' && selectedIdentity.referenceId && !isUploadingReferences)
@@ -578,6 +613,32 @@ export function ImageGeneration() {
                       <img src={imageUrl} alt="Resultado gerado" className="aspect-square h-full w-full object-cover" />
                     </button>
                   ))}
+                </div>
+              )}
+
+              {generatedImages.length > 0 && (
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleSaveToGallery}
+                    disabled={savedToGallery}
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold tracking-wide transition-all ${
+                      savedToGallery
+                        ? 'cursor-default border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                        : 'border-white/[0.08] bg-white/[0.04] text-gray-300 hover:bg-white/[0.07]'
+                    }`}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {savedToGallery ? 'Salvo na galeria' : 'Salvar na galeria'}
+                  </button>
+                  <a
+                    href={activePreviewImage ?? generatedImages[0]}
+                    download
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-semibold tracking-wide text-gray-300 transition-all hover:bg-white/[0.07]"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Baixar imagem
+                  </a>
                 </div>
               )}
             </div>
