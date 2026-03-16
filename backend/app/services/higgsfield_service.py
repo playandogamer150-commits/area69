@@ -86,8 +86,8 @@ class HiggsfieldService:
         prompt: str,
         character_id: str,
         character_name: str,
-        width: int,
-        height: int,
+        aspect_ratio: str,
+        resolution: str,
         result_images: int,
         reference_image_urls: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -99,19 +99,19 @@ class HiggsfieldService:
 
         body = {
             "prompt": prompt,
-            "width": width,
-            "height": height,
+            "batch_size": result_images,
+            "resolution": resolution,
+            "aspect_ratio": aspect_ratio,
             "enhance_prompt": True,
             "style_id": REALISTIC_STYLE_ID,
             "style_strength": 1,
-            "custom_reference": {
-                "id": character_id,
-                "name": character_name,
-            },
-            "image_reference": normalized_reference_urls[0] if normalized_reference_urls else None,
+            "custom_reference_id": character_id,
+            "custom_reference_strength": 1,
         }
-        if result_images != 1:
-            body["result_images"] = result_images
+        if character_name:
+            body["custom_reference_name"] = character_name
+        if normalized_reference_urls:
+            body["image_reference_url"] = normalized_reference_urls[0]
         logger.info("Soul Character payload: %s", body)
         return await self._request(
             "POST",
