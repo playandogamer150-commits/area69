@@ -59,8 +59,8 @@ export function Login() {
       toast({ title: 'Erro', description: 'Informe seu nome para criar a conta', variant: 'destructive' })
       return
     }
-    if (password.length < 6) {
-      toast({ title: 'Erro', description: 'A senha precisa ter pelo menos 6 caracteres', variant: 'destructive' })
+    if (password.length < 8) {
+      toast({ title: 'Erro', description: 'A senha precisa ter pelo menos 8 caracteres', variant: 'destructive' })
       return
     }
     if (password !== confirmPassword) {

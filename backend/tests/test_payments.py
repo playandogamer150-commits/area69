@@ -113,3 +113,18 @@ def test_webhook_revalidates_provider_status_before_activating(client, db_sessio
     assert db_user is not None
     assert charge.status == "paid"
     assert db_user.license_status == "active"
+
+
+def test_efi_webhook_requires_matching_secret_when_configured(client, db_session, monkeypatch):
+    monkeypatch.setattr("app.api.v1.endpoints.payments.settings.EFI_WEBHOOK_SECRET", "super-secret")
+    response = client.post("/api/v1/payments/efi/webhook", json={"pix": []})
+
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/v1/payments/efi/webhook",
+        json={"pix": []},
+        headers={"X-Webhook-Secret": "super-secret"},
+    )
+
+    assert response.status_code == 200

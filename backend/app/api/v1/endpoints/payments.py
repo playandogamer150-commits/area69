@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import hmac
+import logging
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
@@ -13,6 +16,25 @@ from app.models.database import LicenseKey, PaymentCharge, User, get_db
 from app.services.efi_pix_service import EfiPixService
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
+logger = logging.getLogger(__name__)
+
+
+def ensure_webhook_is_authorized(
+    provided_secret: str | None,
+    query_secret: str | None,
+    configured_secret: str | None,
+) -> None:
+    if configured_secret:
+        for candidate in (provided_secret, query_secret):
+            if candidate and hmac.compare_digest(candidate, configured_secret):
+                return
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook secret")
+
+    if settings.is_production:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook secret is not configured",
+        )
 
 
 class CreatePixChargeRequest(BaseModel):
@@ -130,14 +152,15 @@ async def create_pix_charge(
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except Exception as exc:
-        detail = str(exc)
         response = getattr(exc, "response", None)
         if response is not None:
             try:
-                detail = response.text
+                logger.error("EFI charge creation failed: %s", response.text)
             except Exception:
-                detail = str(exc)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Falha ao criar cobranca Pix na Efi: {detail}") from exc
+                logger.exception("EFI charge creation failed")
+        else:
+            logger.exception("EFI charge creation failed")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Falha ao criar cobranca Pix na Efi") from exc
 
     charge = PaymentCharge(
         user_id=current_user.id,
@@ -184,7 +207,13 @@ async def get_latest_pix_charge(current_user: User = Depends(get_current_user), 
 
 
 @router.post("/efi/webhook")
-async def efi_webhook(payload: dict, db: Session = Depends(get_db)):
+async def efi_webhook(
+    payload: dict,
+    db: Session = Depends(get_db),
+    x_webhook_secret: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
+    ensure_webhook_is_authorized(x_webhook_secret, token, settings.EFI_WEBHOOK_SECRET)
     pix_items = payload.get("pix") or []
     updated = 0
 

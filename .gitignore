@@ -6,6 +6,7 @@ backend/app/__pycache__/
 backend/tests/__pycache__/
 backend/storage/
 backend/certs/
+backend/backend/.certs/
 .env
 frontend/.env
 frontend/.env.local

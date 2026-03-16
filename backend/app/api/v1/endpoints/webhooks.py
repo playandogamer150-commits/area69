@@ -1,15 +1,41 @@
-from fastapi import APIRouter, Request, Depends, HTTPException
+import hmac
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
-from app.models.database import Generation, FaceSwapTask, VideoTask, LoRAModel
+from app.core.config import settings
+from app.models.database import FaceSwapTask, Generation, LoRAModel, VideoTask, get_db
 
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
+def ensure_webhook_is_authorized(
+    provided_secret: str | None,
+    query_secret: str | None,
+    configured_secret: str | None,
+) -> None:
+    if configured_secret:
+        for candidate in (provided_secret, query_secret):
+            if candidate and hmac.compare_digest(candidate, configured_secret):
+                return
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook secret")
+
+    if settings.is_production:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Webhook secret is not configured",
+        )
+
+
 @router.post("/replicate")
-async def replicate_webhook(request: Request, db: Session = Depends(get_db)):
+async def replicate_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_webhook_secret: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
     """Webhook handler for Replicate callbacks."""
+    ensure_webhook_is_authorized(x_webhook_secret, token, settings.REPLICATE_WEBHOOK_SECRET)
     try:
         payload = await request.json()
     except Exception:
@@ -71,8 +97,14 @@ async def replicate_webhook(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/fal")
-async def fal_webhook(request: Request, db: Session = Depends(get_db)):
+async def fal_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+    x_webhook_secret: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+):
     """Webhook handler for Fal.ai callbacks."""
+    ensure_webhook_is_authorized(x_webhook_secret, token, settings.FAL_WEBHOOK_SECRET)
     try:
         payload = await request.json()
     except Exception:
@@ -82,9 +114,14 @@ async def fal_webhook(request: Request, db: Session = Depends(get_db)):
     status = payload.get("status")
     output = payload.get("output")
     
-    lora = db.query(LoRAModel).filter(
-        LoRAModel.id == int(request_id.split("_")[-1]) if request_id else None
-    ).first() if request_id else None
+    lora = None
+    if request_id:
+        try:
+            lora_id = int(request_id.split("_")[-1])
+        except (TypeError, ValueError):
+            lora_id = None
+        if lora_id is not None:
+            lora = db.query(LoRAModel).filter(LoRAModel.id == lora_id).first()
     
     if lora and status == "COMPLETED":
         lora.status = "ready"
