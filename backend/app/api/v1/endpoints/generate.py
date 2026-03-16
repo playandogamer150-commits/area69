@@ -41,6 +41,8 @@ router = APIRouter()
 VALID_ASPECT_RATIOS = {"9:16", "16:9", "4:3", "3:4", "1:1", "2:3", "3:2"}
 VALID_RESOLUTIONS = {"720p", "1080p"}
 VALID_RESULT_IMAGES = {1, 4}
+SOUL_DEFAULT_ASPECT_RATIO = "9:16"
+SOUL_DEFAULT_RESOLUTION = "1080p"
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -132,6 +134,11 @@ def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, in
     )
 
 
+def resolve_soul_dimensions(_: GenerationRequest) -> tuple[int, int]:
+    """Use the canonical Soul Character portrait sizing for maximum realism parity."""
+    return aspect_ratio_dimensions(SOUL_DEFAULT_ASPECT_RATIO, SOUL_DEFAULT_RESOLUTION)
+
+
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
     if entity_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Resource does not belong to the current user")
@@ -218,12 +225,17 @@ async def generate_image(
         aspect_ratio = validated_aspect_ratio(request.aspectRatio)
         resolution = validated_resolution(request.resolution)
         result_images = validated_result_images(request.resultImages)
-        width, height = aspect_ratio_dimensions(aspect_ratio, resolution)
+        width, height = (
+            resolve_soul_dimensions(request)
+            if is_soul_identity(lora)
+            else aspect_ratio_dimensions(aspect_ratio, resolution)
+        )
         logger.info("[Generate] enhanced prompt: %s", enhanced_prompt)
         if is_soul_identity(lora):
             soul_service = HiggsfieldService()
-            soul_id = extract_soul_id(lora)
-            if request.characterId and request.characterId != soul_id:
+            lora_soul_id = extract_soul_id(lora)
+            soul_id = (request.characterId or "").strip() or lora_soul_id
+            if request.characterId and lora_soul_id and request.characterId != lora_soul_id:
                 raise HTTPException(status_code=400, detail="Character ID nao corresponde a identidade selecionada")
             result = await soul_service.create_soul_character_image(
                 prompt=enhanced_prompt,
