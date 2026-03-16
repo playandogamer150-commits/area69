@@ -106,3 +106,22 @@ def test_lora_recovery_rejects_reference_photo_from_another_user(client, db_sess
     )
 
     assert response.status_code == 403
+
+
+def test_image_edit_rejects_storage_path_outside_allowed_folder(client, db_session):
+    register_response = register_user(client, "licensed-edit@example.com")
+    activate_user_license(db_session, register_response["user"]["id"])
+
+    response = client.post(
+        "/api/v1/generate/image-edit",
+        json={
+            "userId": str(register_response["user"]["id"]),
+            "images": [f"/storage/{register_response['user']['id']}/private/model/image.png"],
+            "prompt": "edit this",
+            "size": "1024x1024",
+            "seed": -1,
+        },
+        headers={"Authorization": f"Bearer {register_response['access_token']}"},
+    )
+
+    assert response.status_code == 400

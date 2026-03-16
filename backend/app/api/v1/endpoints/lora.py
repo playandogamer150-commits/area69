@@ -1,7 +1,5 @@
 from __future__ import annotations
 from typing import List, Optional
-from urllib.parse import unquote
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
@@ -10,7 +8,7 @@ from app.core.logging import get_logger
 from app.core.security import get_current_licensed_user
 from app.models.database import LoRAModel, User, get_db
 from app.services.higgsfield_service import HiggsfieldService
-from app.core.config import settings
+from app.storage import build_public_storage_url, validate_user_storage_path
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -21,23 +19,6 @@ def normalize_model_name(value: str) -> str:
     if not normalized:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="modelName invalido")
     return normalized
-
-
-def validate_reference_photo_path(path: str, current_user: User) -> str:
-    normalized = unquote(path.strip())
-    expected_prefix = f"/storage/{current_user.id}/"
-    if not normalized.startswith(expected_prefix):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Reference photo does not belong to the current user",
-        )
-    if ".." in normalized:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reference photo path")
-    return normalized
-
-
-def build_public_reference_photo_url(path: str) -> str:
-    return f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{path}"
 
 
 def soul_reference_marker(reference_id: str | None) -> str | None:
@@ -90,7 +71,10 @@ async def create_or_recover_lora(
     user_id = current_user.id
     safe_model_name = normalize_model_name(request.modelName)
     selected_reference_photos = request.referencePhotos[:20]
-    safe_reference_photos = [validate_reference_photo_path(path, current_user) for path in selected_reference_photos]
+    safe_reference_photos = [
+        validate_user_storage_path(path, current_user)
+        for path in selected_reference_photos
+    ]
 
     higgsfield_service = HiggsfieldService()
     if not higgsfield_service.is_configured:
@@ -115,7 +99,7 @@ async def create_or_recover_lora(
         )
 
     try:
-        input_images = [build_public_reference_photo_url(path) for path in safe_reference_photos]
+        input_images = [build_public_storage_url(path) for path in safe_reference_photos]
         logger.info("Creating Soul ID for user %s with %s images", user_id, len(input_images))
 
         result = await higgsfield_service.create_soul_id(
