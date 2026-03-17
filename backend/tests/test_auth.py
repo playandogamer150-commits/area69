@@ -1,9 +1,11 @@
 from datetime import datetime
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock
 
 from app.core.anti_abuse import determine_trial_block_reason
 from app.core.security import create_access_token, decode_token, get_password_hash, verify_password
 from app.models.database import User
+from app.services.oauth_service import OAuthIdentity
 
 
 def test_password_hashing():
@@ -269,3 +271,108 @@ def test_register_rejects_invalid_turnstile_token(client, monkeypatch, test_user
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Turnstile verification failed"
+
+
+def test_oauth_start_returns_google_authorization_url(client, monkeypatch):
+    monkeypatch.setattr("app.services.oauth_service.settings.GOOGLE_OAUTH_CLIENT_ID", "google-client")
+    monkeypatch.setattr("app.services.oauth_service.settings.GOOGLE_OAUTH_CLIENT_SECRET", "google-secret")
+
+    response = client.post(
+        "/api/v1/auth/oauth/google/start",
+        json={"deviceFingerprint": "device-a", "redirectTo": "http://localhost:3000/auth/callback"},
+    )
+
+    assert response.status_code == 200
+    authorization_url = response.json()["authorizationUrl"]
+    assert authorization_url.startswith("https://accounts.google.com/o/oauth2/v2/auth?")
+    query = parse_qs(urlparse(authorization_url).query)
+    assert query["client_id"] == ["google-client"]
+    assert query["redirect_uri"] == ["http://localhost:8000/api/v1/auth/oauth/google/callback"]
+    assert "state" in query
+
+
+def test_google_oauth_callback_creates_social_user_with_trial(client, db_session, monkeypatch):
+    monkeypatch.setattr("app.services.oauth_service.settings.GOOGLE_OAUTH_CLIENT_ID", "google-client")
+    monkeypatch.setattr("app.services.oauth_service.settings.GOOGLE_OAUTH_CLIENT_SECRET", "google-secret")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TRIAL_MAX_ACCOUNTS_PER_IP", 1)
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.auth.exchange_code_for_identity",
+        AsyncMock(
+            return_value=OAuthIdentity(
+                provider="google",
+                subject="google-subject-1",
+                email="social@example.com",
+                name="Social User",
+                email_verified=True,
+            )
+        ),
+    )
+
+    start_response = client.post(
+        "/api/v1/auth/oauth/google/start",
+        json={"deviceFingerprint": "device-a", "redirectTo": "http://localhost:3000/auth/callback"},
+    )
+    state = parse_qs(urlparse(start_response.json()["authorizationUrl"]).query)["state"][0]
+
+    callback_response = client.get(
+        "/api/v1/auth/oauth/google/callback",
+        params={"code": "oauth-code", "state": state},
+        follow_redirects=False,
+    )
+
+    assert callback_response.status_code == 302
+    fragment = parse_qs(urlparse(callback_response.headers["location"]).fragment)
+    assert "access_token" in fragment
+    assert "refresh_token" in fragment
+    user_payload = fragment["user"][0]
+    assert '"authProvider":"google"' in user_payload
+    assert '"trialEditCreditsRemaining":2' in user_payload
+
+    user = db_session.query(User).filter(User.email == "social@example.com").first()
+    assert user is not None
+    assert user.auth_provider == "google"
+    assert user.google_subject == "google-subject-1"
+    assert user.trial_edit_credits_remaining == 2
+
+
+def test_google_oauth_callback_rejects_email_collision_with_password_account(client, db_session, monkeypatch):
+    monkeypatch.setattr("app.services.oauth_service.settings.GOOGLE_OAUTH_CLIENT_ID", "google-client")
+    monkeypatch.setattr("app.services.oauth_service.settings.GOOGLE_OAUTH_CLIENT_SECRET", "google-secret")
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.auth.exchange_code_for_identity",
+        AsyncMock(
+            return_value=OAuthIdentity(
+                provider="google",
+                subject="google-subject-1",
+                email="test@example.com",
+                name="Social User",
+                email_verified=True,
+            )
+        ),
+    )
+    db_session.add(
+        User(
+            email="test@example.com",
+            hashed_password="hash",
+            auth_provider="password",
+            name="Existing User",
+        )
+    )
+    db_session.commit()
+
+    start_response = client.post(
+        "/api/v1/auth/oauth/google/start",
+        json={"deviceFingerprint": "device-a", "redirectTo": "http://localhost:3000/auth/callback"},
+    )
+    state = parse_qs(urlparse(start_response.json()["authorizationUrl"]).query)["state"][0]
+
+    callback_response = client.get(
+        "/api/v1/auth/oauth/google/callback",
+        params={"code": "oauth-code", "state": state},
+        follow_redirects=False,
+    )
+
+    assert callback_response.status_code == 302
+    fragment = parse_qs(urlparse(callback_response.headers["location"]).fragment)
+    assert "error" in fragment
+    assert "another sign-in method" in fragment["error"][0]

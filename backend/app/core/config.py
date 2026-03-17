@@ -49,6 +49,36 @@ class Settings(BaseSettings):
     )
     TRIAL_INITIAL_EDIT_CREDITS: int = Field(2, env="TRIAL_INITIAL_EDIT_CREDITS")
     TRIAL_MAX_ACCOUNTS_PER_IP: int = Field(2, env="TRIAL_MAX_ACCOUNTS_PER_IP")
+    FRONTEND_PUBLIC_URL: str = Field("http://localhost:3000", env="FRONTEND_PUBLIC_URL")
+    OAUTH_STATE_EXPIRE_MINUTES: int = Field(10, env="OAUTH_STATE_EXPIRE_MINUTES")
+    GOOGLE_OAUTH_CLIENT_ID: str | None = Field(default=None, env="GOOGLE_OAUTH_CLIENT_ID")
+    GOOGLE_OAUTH_CLIENT_SECRET: str | None = Field(default=None, env="GOOGLE_OAUTH_CLIENT_SECRET")
+    GOOGLE_OAUTH_AUTH_URL: str = Field(
+        "https://accounts.google.com/o/oauth2/v2/auth",
+        env="GOOGLE_OAUTH_AUTH_URL",
+    )
+    GOOGLE_OAUTH_TOKEN_URL: str = Field(
+        "https://oauth2.googleapis.com/token",
+        env="GOOGLE_OAUTH_TOKEN_URL",
+    )
+    GOOGLE_OAUTH_USERINFO_URL: str = Field(
+        "https://openidconnect.googleapis.com/v1/userinfo",
+        env="GOOGLE_OAUTH_USERINFO_URL",
+    )
+    DISCORD_OAUTH_CLIENT_ID: str | None = Field(default=None, env="DISCORD_OAUTH_CLIENT_ID")
+    DISCORD_OAUTH_CLIENT_SECRET: str | None = Field(default=None, env="DISCORD_OAUTH_CLIENT_SECRET")
+    DISCORD_OAUTH_AUTH_URL: str = Field(
+        "https://discord.com/oauth2/authorize",
+        env="DISCORD_OAUTH_AUTH_URL",
+    )
+    DISCORD_OAUTH_TOKEN_URL: str = Field(
+        "https://discord.com/api/oauth2/token",
+        env="DISCORD_OAUTH_TOKEN_URL",
+    )
+    DISCORD_OAUTH_USERINFO_URL: str = Field(
+        "https://discord.com/api/users/@me",
+        env="DISCORD_OAUTH_USERINFO_URL",
+    )
 
     class Config:
         env_file = ".env"

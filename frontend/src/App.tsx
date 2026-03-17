@@ -12,6 +12,7 @@ import { ImageGeneration } from '@/pages/ImageGeneration'
 import { ImageEdit } from '@/pages/ImageEdit'
 import { Gallery } from '@/pages/Gallery'
 import { Login } from '@/pages/Login'
+import { OAuthCallback } from '@/pages/OAuthCallback'
 import { Profile } from '@/pages/Profile'
 
 const queryClient = new QueryClient()
@@ -25,6 +26,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/auth" element={<Login />} />
+            <Route path="/auth/callback" element={<OAuthCallback />} />
             <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/identity" element={<LicensedRoute><IdentityCreation /></LicensedRoute>} />

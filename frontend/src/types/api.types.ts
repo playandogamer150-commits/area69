@@ -227,6 +227,10 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export interface OAuthStartResponse {
+  authorizationUrl: string;
+}
+
 export type GallerySourceType = 'image_edit' | 'image_generation' | 'legacy'
 
 export interface GalleryItem {

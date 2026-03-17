@@ -3,10 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, field_validator
 import logging
+from jose import JWTError, jwt
+import secrets
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -29,6 +33,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.database import LicenseKey, User, get_db
+from app.services.oauth_service import OAuthIdentity, build_oauth_authorization_url, exchange_code_for_identity
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = logging.getLogger(__name__)
@@ -125,6 +130,27 @@ class UpdateProfileRequest(BaseModel):
         return normalized or None
 
 
+class OAuthStartRequest(BaseModel):
+    deviceFingerprint: Optional[str] = Field(default=None, max_length=512)
+    redirectTo: Optional[str] = Field(default=None, max_length=1024)
+
+    @field_validator("deviceFingerprint")
+    @classmethod
+    def normalize_device_fingerprint(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("redirectTo")
+    @classmethod
+    def normalize_redirect_to(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -148,6 +174,141 @@ def serialize_user(user: User) -> dict:
         "trialBlockedReason": user_trial_blocked_reason(user),
         "createdAt": user.created_at.isoformat() if user.created_at else None,
     }
+
+
+def _oauth_callback_uri(provider: str) -> str:
+    return f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}/api/v1/auth/oauth/{provider}/callback"
+
+
+def _default_frontend_callback() -> str:
+    return f"{settings.FRONTEND_PUBLIC_URL.rstrip('/')}/auth/callback"
+
+
+def _normalize_frontend_redirect(redirect_to: str | None) -> str:
+    candidate = (redirect_to or _default_frontend_callback()).strip()
+    parsed = urlparse(candidate)
+    if parsed.scheme != "https" and settings.is_production:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth redirect must use HTTPS")
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth redirect target")
+
+    allowed_origins = set(settings.cors_origins_list)
+    candidate_origin = f"{parsed.scheme}://{parsed.netloc}"
+    if candidate_origin not in allowed_origins:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth redirect target is not allowed")
+
+    path = parsed.path or "/auth/callback"
+    if path != "/auth/callback":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OAuth redirect target path is not allowed")
+    return f"{candidate_origin}{path}"
+
+
+def _encode_oauth_state(provider: str, redirect_to: str, device_fingerprint_hash: str | None) -> str:
+    expires_at = datetime.utcnow() + timedelta(minutes=settings.OAUTH_STATE_EXPIRE_MINUTES)
+    payload = {
+        "type": "oauth_state",
+        "provider": provider,
+        "redirect_to": redirect_to,
+        "device_fingerprint_hash": device_fingerprint_hash,
+        "nonce": secrets.token_urlsafe(12),
+        "exp": expires_at,
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def _decode_oauth_state(provider: str, state: str) -> dict:
+    try:
+        payload = jwt.decode(state, settings.JWT_SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state") from exc
+    if payload.get("type") != "oauth_state" or payload.get("provider") != provider:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
+    return payload
+
+
+def _oauth_subject_field(provider: str) -> str:
+    if provider == "google":
+        return "google_subject"
+    if provider == "discord":
+        return "discord_subject"
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unsupported OAuth provider")
+
+
+def _build_oauth_error_redirect(redirect_to: str, message: str) -> RedirectResponse:
+    return RedirectResponse(url=f"{redirect_to}#error={quote(message)}", status_code=status.HTTP_302_FOUND)
+
+
+def _build_oauth_success_redirect(redirect_to: str, user: User) -> RedirectResponse:
+    access_token = create_access_token(
+        data={"sub": str(user.id)},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    user_payload = quote(TokenResponse(access_token=access_token, refresh_token=refresh_token, user=serialize_user(user)).model_dump_json())
+    return RedirectResponse(
+        url=f"{redirect_to}#access_token={quote(access_token)}&refresh_token={quote(refresh_token)}&user={user_payload}",
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+def _upsert_oauth_user(db: Session, request: Request, identity: OAuthIdentity, device_fingerprint_hash: str | None) -> User:
+    subject_field = _oauth_subject_field(identity.provider)
+    client_ip_hash = hash_abuse_signal(extract_client_ip(request))
+    existing_by_subject = db.query(User).filter(getattr(User, subject_field) == identity.subject).first()
+    if existing_by_subject:
+        existing_by_subject.email = identity.email
+        existing_by_subject.name = identity.name or existing_by_subject.name
+        existing_by_subject.auth_provider = identity.provider
+        existing_by_subject.last_ip_hash = client_ip_hash
+        if device_fingerprint_hash:
+            existing_by_subject.device_fingerprint_hash = device_fingerprint_hash
+        db.commit()
+        db.refresh(existing_by_subject)
+        return existing_by_subject
+
+    existing_by_email = db.query(User).filter(User.email == identity.email).first()
+    if existing_by_email:
+        if existing_by_email.auth_provider != identity.provider:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists with another sign-in method",
+            )
+        setattr(existing_by_email, subject_field, identity.subject)
+        existing_by_email.name = identity.name or existing_by_email.name
+        existing_by_email.last_ip_hash = client_ip_hash
+        if device_fingerprint_hash:
+            existing_by_email.device_fingerprint_hash = device_fingerprint_hash
+        db.commit()
+        db.refresh(existing_by_email)
+        return existing_by_email
+
+    trial_blocked_reason = determine_trial_block_reason(
+        db,
+        auth_provider=identity.provider,
+        signup_ip_hash=client_ip_hash,
+        device_fingerprint_hash=device_fingerprint_hash,
+    )
+    trial_credits = settings.TRIAL_INITIAL_EDIT_CREDITS if trial_blocked_reason is None else 0
+    trial_granted_at = datetime.utcnow() if trial_credits > 0 else None
+    user = User(
+        email=identity.email,
+        hashed_password=get_password_hash(secrets.token_urlsafe(32)),
+        name=identity.name,
+        auth_provider=identity.provider,
+        is_active=True,
+        license_status="inactive",
+        trial_edit_credits_remaining=trial_credits,
+        trial_blocked_reason=trial_blocked_reason,
+        trial_granted_at=trial_granted_at,
+        signup_ip_hash=client_ip_hash,
+        last_ip_hash=client_ip_hash,
+        device_fingerprint_hash=device_fingerprint_hash,
+    )
+    setattr(user, subject_field, identity.subject)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def _find_seed_file() -> Path | None:
@@ -271,6 +432,38 @@ async def login(payload: LoginRequest, request: Request, db: Session = Depends(g
         "token_type": "bearer",
         "user": serialize_user(user),
     }
+
+
+@router.post("/oauth/{provider}/start")
+async def oauth_start(provider: str, payload: OAuthStartRequest):
+    normalized_provider = provider.strip().lower()
+    redirect_to = _normalize_frontend_redirect(payload.redirectTo)
+    device_fingerprint_hash = hash_abuse_signal(payload.deviceFingerprint)
+    state = _encode_oauth_state(normalized_provider, redirect_to, device_fingerprint_hash)
+    authorization_url = build_oauth_authorization_url(
+        normalized_provider,
+        _oauth_callback_uri(normalized_provider),
+        state,
+    )
+    return {"authorizationUrl": authorization_url}
+
+
+@router.get("/oauth/{provider}/callback")
+async def oauth_callback(provider: str, code: str, state: str, request: Request, db: Session = Depends(get_db)):
+    normalized_provider = provider.strip().lower()
+    state_payload = _decode_oauth_state(normalized_provider, state)
+    redirect_to = _normalize_frontend_redirect(state_payload.get("redirect_to"))
+    try:
+        identity = await exchange_code_for_identity(normalized_provider, code, _oauth_callback_uri(normalized_provider))
+        user = _upsert_oauth_user(db, request, identity, state_payload.get("device_fingerprint_hash"))
+    except HTTPException as exc:
+        return _build_oauth_error_redirect(redirect_to, exc.detail if isinstance(exc.detail, str) else "OAuth login failed")
+    except SQLAlchemyError:
+        db.rollback()
+        logger.exception("Failed to finalize OAuth login")
+        return _build_oauth_error_redirect(redirect_to, "Nao foi possivel finalizar o login social")
+
+    return _build_oauth_success_redirect(redirect_to, user)
 
 
 @router.get("/me")
