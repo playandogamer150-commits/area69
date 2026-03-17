@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 
 from app.core.security import create_access_token, decode_token, get_password_hash, verify_password
@@ -153,3 +155,90 @@ def test_register_rejects_short_password(client, test_user_data):
     response = client.post("/api/v1/auth/register", json=payload)
 
     assert response.status_code == 422
+
+
+def test_register_rejects_disposable_email_domain(client, test_user_data):
+    payload = {**test_user_data, "email": "temp@mailinator.com"}
+
+    response = client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Disposable email addresses are not allowed"
+
+
+def test_register_blocks_trial_for_reused_device_fingerprint(client, test_user_data):
+    first_payload = {**test_user_data, "email": "first@example.com", "deviceFingerprint": "same-device"}
+    second_payload = {**test_user_data, "email": "second@example.com", "deviceFingerprint": "same-device"}
+
+    first = client.post(
+        "/api/v1/auth/register",
+        json=first_payload,
+        headers={"x-forwarded-for": "203.0.113.10"},
+    )
+    second = client.post(
+        "/api/v1/auth/register",
+        json=second_payload,
+        headers={"x-forwarded-for": "203.0.113.11"},
+    )
+
+    assert first.status_code == 200
+    assert first.json()["user"]["trialEditCreditsRemaining"] == 2
+    assert second.status_code == 200
+    assert second.json()["user"]["trialEditCreditsRemaining"] == 0
+    assert second.json()["user"]["trialBlockedReason"] == "device_limit"
+
+
+def test_register_without_device_fingerprint_creates_account_without_trial(client, test_user_data):
+    payload = {key: value for key, value in test_user_data.items() if key != "deviceFingerprint"}
+
+    response = client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["user"]["trialEditCreditsRemaining"] == 0
+    assert response.json()["user"]["trialBlockedReason"] == "missing_fingerprint"
+
+
+def test_register_blocks_trial_when_ip_limit_is_reached(client, test_user_data):
+    for index in range(2):
+        response = client.post(
+            "/api/v1/auth/register",
+            json={**test_user_data, "email": f"user{index}@example.com", "deviceFingerprint": f"device-{index}"},
+            headers={"x-forwarded-for": "198.51.100.5"},
+        )
+        assert response.status_code == 200
+        assert response.json()["user"]["trialEditCreditsRemaining"] == 2
+
+    blocked = client.post(
+        "/api/v1/auth/register",
+        json={**test_user_data, "email": "blocked@example.com", "deviceFingerprint": "device-3"},
+        headers={"x-forwarded-for": "198.51.100.5"},
+    )
+
+    assert blocked.status_code == 200
+    assert blocked.json()["user"]["trialEditCreditsRemaining"] == 0
+    assert blocked.json()["user"]["trialBlockedReason"] == "ip_limit"
+
+
+def test_register_requires_valid_turnstile_when_secret_is_configured(client, monkeypatch, test_user_data):
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TURNSTILE_SECRET_KEY", "turnstile-secret")
+
+    response = client.post("/api/v1/auth/register", json=test_user_data)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Turnstile token is required"
+
+
+def test_register_rejects_invalid_turnstile_token(client, monkeypatch, test_user_data):
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TURNSTILE_SECRET_KEY", "turnstile-secret")
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.auth.verify_turnstile_token",
+        AsyncMock(return_value=False),
+    )
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={**test_user_data, "turnstileToken": "invalid-token"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Turnstile verification failed"

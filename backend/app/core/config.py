@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     REPLICATE_WEBHOOK_SECRET: str | None = Field(default=None, env="REPLICATE_WEBHOOK_SECRET")
     FAL_WEBHOOK_SECRET: str | None = Field(default=None, env="FAL_WEBHOOK_SECRET")
+    TURNSTILE_SECRET_KEY: str | None = Field(default=None, env="TURNSTILE_SECRET_KEY")
+    TURNSTILE_SITEVERIFY_URL: str = Field(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        env="TURNSTILE_SITEVERIFY_URL",
+    )
+    TRIAL_INITIAL_EDIT_CREDITS: int = Field(2, env="TRIAL_INITIAL_EDIT_CREDITS")
+    TRIAL_MAX_ACCOUNTS_PER_IP: int = Field(2, env="TRIAL_MAX_ACCOUNTS_PER_IP")
 
     class Config:
         env_file = ".env"

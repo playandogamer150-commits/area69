@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, User, Zap } from 'lucide-react'
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
 import { useToast } from '@/hooks/useToast'
 import { authService } from '@/services/auth.service'
 import { getApiErrorMessage } from '@/utils/api-error'
+import { getDeviceFingerprint } from '@/utils/deviceFingerprint'
+import { getTrialBlockedMessage } from '@/utils/trial'
 
 type AuthMode = 'login' | 'register'
 
@@ -25,6 +28,9 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0)
+  const turnstileSiteKey = (import.meta.env.VITE_TURNSTILE_SITE_KEY || '').trim()
 
   useEffect(() => {
     setMode(defaultMode)
@@ -34,7 +40,13 @@ export function Login() {
     setMode(nextMode)
     setShowPassword(false)
     setShowConfirmPassword(false)
+    setTurnstileToken(null)
+    setTurnstileResetKey((current) => current + 1)
   }
+
+  const handleTurnstileTokenChange = useCallback((token: string | null) => {
+    setTurnstileToken(token)
+  }, [])
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -64,16 +76,30 @@ export function Login() {
       return
     }
     if (password !== confirmPassword) {
-      toast({ title: 'Erro', description: 'As senhas não coincidem', variant: 'destructive' })
+      toast({ title: 'Erro', description: 'As senhas nao coincidem', variant: 'destructive' })
+      return
+    }
+    if (turnstileSiteKey && !turnstileToken) {
+      toast({ title: 'Erro', description: 'Confirme o desafio de seguranca antes de criar a conta', variant: 'destructive' })
       return
     }
 
     setIsLoading(true)
     try {
-      await authService.register(trimmedEmail, password, trimmedName)
-      toast({ title: 'Conta criada', description: 'Conta criada com sucesso. Agora ative sua licença no perfil.' })
+      const deviceFingerprint = await getDeviceFingerprint()
+      const response = await authService.register(trimmedEmail, password, trimmedName, deviceFingerprint, turnstileToken || undefined)
+      if (response.user.trialBlockedReason && !(response.user.trialEditCreditsRemaining || 0)) {
+        toast({
+          title: 'Conta criada',
+          description: `${getTrialBlockedMessage(response.user.trialBlockedReason)} Ative a licenca no perfil para liberar a plataforma completa.`,
+        })
+      } else {
+        toast({ title: 'Conta criada', description: 'Conta criada com sucesso. Voce recebeu 2 edicoes gratis para testar a plataforma.' })
+      }
       navigate('/profile')
     } catch (error) {
+      setTurnstileToken(null)
+      setTurnstileResetKey((current) => current + 1)
       toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao criar conta'), variant: 'destructive' })
     } finally {
       setIsLoading(false)
@@ -85,10 +111,10 @@ export function Login() {
       <div className="absolute inset-0 bg-gradient-to-b from-red-950/15 via-black to-black" />
       <div className="absolute left-1/2 top-0 h-[56rem] w-[56rem] -translate-x-1/2 rounded-full bg-red-600/[0.07] blur-[180px]" />
       <div className="absolute bottom-0 right-1/4 h-[30rem] w-[30rem] rounded-full bg-red-800/[0.04] blur-[160px]" />
-      <div className="absolute top-1/3 left-1/4 h-[25rem] w-[25rem] rounded-full bg-red-600/[0.03] blur-[140px]" />
+      <div className="absolute left-1/4 top-1/3 h-[25rem] w-[25rem] rounded-full bg-red-600/[0.03] blur-[140px]" />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]" />
 
-      <nav className="relative z-20 border-b border-white/[0.06] bg-black/50 backdrop-blur-2xl shadow-[0_4px_30px_rgba(0,0,0,0.8)]">
+      <nav className="relative z-20 border-b border-white/[0.06] bg-black/50 shadow-[0_4px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:h-20 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-3">
             <img src="/area69-wordmark.png" alt="AREA 69 AI" className="h-8 w-auto object-contain sm:h-12" />
@@ -208,7 +234,7 @@ export function Login() {
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(event) => setPassword(event.target.value)}
-                          placeholder="••••••••"
+                          placeholder="********"
                           className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-3 pl-10 pr-12 text-sm text-white placeholder:text-gray-600 outline-none transition-all duration-300 focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]"
                           required
                         />
@@ -231,7 +257,7 @@ export function Login() {
                             type={showConfirmPassword ? 'text' : 'password'}
                             value={confirmPassword}
                             onChange={(event) => setConfirmPassword(event.target.value)}
-                            placeholder="••••••••"
+                            placeholder="********"
                             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-3 pl-10 pr-12 text-sm text-white placeholder:text-gray-600 outline-none transition-all duration-300 focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]"
                             required
                           />
@@ -243,6 +269,16 @@ export function Login() {
                             {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
+                      </div>
+                    )}
+
+                    {mode === 'register' && turnstileSiteKey && (
+                      <div>
+                        <label className="mb-2 block text-sm font-medium tracking-wide text-gray-300">Seguranca</label>
+                        <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-3">
+                          <TurnstileWidget key={turnstileResetKey} siteKey={turnstileSiteKey} onTokenChange={handleTurnstileTokenChange} />
+                        </div>
+                        <p className="mt-2 text-xs text-gray-500">Protecao anti-bot e anti-abuso para liberar o trial gratuito.</p>
                       </div>
                     )}
 
@@ -314,20 +350,20 @@ export function Login() {
               </div>
 
               <p className="mt-8 text-center text-xs leading-relaxed text-gray-600">
-                Ao continuar, você concorda com nossos{' '}
+                Ao continuar, voce concorda com nossos{' '}
                 <Link to="/" className="underline underline-offset-2 transition-colors hover:text-red-400">
                   Termos de Uso
                 </Link>{' '}
                 e{' '}
                 <Link to="/" className="underline underline-offset-2 transition-colors hover:text-red-400">
-                  Política de Privacidade
+                  Politica de Privacidade
                 </Link>
                 .
               </p>
             </div>
           </div>
 
-          <div className="-z-10 absolute -bottom-4 left-[15%] right-[15%] h-16 rounded-full bg-red-600/[0.04] blur-2xl" />
+          <div className="absolute -bottom-4 left-[15%] right-[15%] -z-10 h-16 rounded-full bg-red-600/[0.04] blur-2xl" />
         </motion.div>
       </div>
 

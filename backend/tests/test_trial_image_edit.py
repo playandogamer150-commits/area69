@@ -9,7 +9,7 @@ from app.models.database import Generation, User
 def register_user(client, email: str, password: str = "strongpass123", name: str = "Trial User") -> dict:
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": password, "name": name},
+        json={"email": email, "password": password, "name": name, "deviceFingerprint": f"fingerprint-{email}"},
     )
     assert response.status_code == 200
     return response.json()

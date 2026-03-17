@@ -51,5 +51,6 @@ def test_user_data():
     return {
         "email": "test@example.com",
         "password": "testpassword123",
-        "name": "Test User"
+        "name": "Test User",
+        "deviceFingerprint": "test-device-fingerprint",
     }

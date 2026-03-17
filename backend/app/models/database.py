@@ -59,6 +59,11 @@ class User(Base):
     license_activated_at = Column(DateTime, nullable=True)
     license_expires_at = Column(DateTime, nullable=True)
     trial_edit_credits_remaining = Column(Integer, default=2, nullable=False)
+    trial_blocked_reason = Column(String(100), nullable=True)
+    trial_granted_at = Column(DateTime, nullable=True)
+    signup_ip_hash = Column(String(64), nullable=True, index=True)
+    last_ip_hash = Column(String(64), nullable=True)
+    device_fingerprint_hash = Column(String(64), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

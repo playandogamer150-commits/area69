@@ -18,7 +18,8 @@ import {
 import { userService } from '@/services/user.service'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import type { DashboardActivityItem, DashboardStatsResponse } from '@/types/api.types'
-import { canUseImageEdit, getTrialEditCreditsRemaining, hasActiveLicense } from '@/utils/session'
+import { canUseImageEdit, getCurrentUser, getTrialEditCreditsRemaining, hasActiveLicense } from '@/utils/session'
+import { getTrialBlockedMessage } from '@/utils/trial'
 
 const emptyStats: DashboardStatsResponse = {
   identities: 0,
@@ -80,6 +81,7 @@ export function Dashboard() {
   const licensed = hasActiveLicense()
   const canEditImage = canUseImageEdit()
   const trialEditCredits = getTrialEditCreditsRemaining()
+  const trialBlockedReason = getCurrentUser()?.trialBlockedReason
   const hasTrainingIdentities = stats.recentActivity.some(
     (item) => item.type === 'identity' && item.status.toLowerCase() === 'training',
   )
@@ -260,7 +262,9 @@ export function Dashboard() {
           ) : (
             <>
               <p className="font-semibold text-red-400">Ative sua licenca para liberar as ferramentas</p>
-              <p className="mt-1 text-sm text-gray-400">Seu trial gratis ja foi usado. O proximo passo e ativar a chave na pagina de perfil.</p>
+              <p className="mt-1 text-sm text-gray-400">
+                {trialBlockedReason ? getTrialBlockedMessage(trialBlockedReason) : 'Seu trial gratis ja foi usado. O proximo passo e ativar a chave na pagina de perfil.'}
+              </p>
               <Link
                 to="/profile"
                 className="mt-4 inline-flex rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(220,38,38,0.3)]"

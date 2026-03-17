@@ -4,13 +4,20 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
 import logging
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.anti_abuse import (
+    determine_trial_block_reason,
+    extract_client_ip,
+    hash_abuse_signal,
+    is_disposable_email,
+    verify_turnstile_token,
+)
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, get_current_user, get_password_hash, verify_password
 from app.models.database import LicenseKey, User, get_db
@@ -23,6 +30,8 @@ class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=5, max_length=255)
     password: str = Field(..., min_length=8, max_length=128)
     name: Optional[str] = Field(default=None, max_length=255)
+    deviceFingerprint: Optional[str] = Field(default=None, max_length=512)
+    turnstileToken: Optional[str] = Field(default=None, max_length=2048)
 
     @field_validator("email")
     @classmethod
@@ -42,6 +51,22 @@ class RegisterRequest(BaseModel):
     @field_validator("name")
     @classmethod
     def normalize_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("deviceFingerprint")
+    @classmethod
+    def normalize_device_fingerprint(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @field_validator("turnstileToken")
+    @classmethod
+    def normalize_turnstile_token(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         normalized = value.strip()
@@ -111,6 +136,7 @@ def serialize_user(user: User) -> dict:
         "licenseActivatedAt": user.license_activated_at.isoformat() if user.license_activated_at else None,
         "licenseExpiresAt": user.license_expires_at.isoformat() if user.license_expires_at else None,
         "trialEditCreditsRemaining": max(user.trial_edit_credits_remaining or 0, 0),
+        "trialBlockedReason": user.trial_blocked_reason,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -151,10 +177,29 @@ def _ensure_seeded_license(db: Session, normalized_key: str) -> LicenseKey | Non
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+async def register(payload: RegisterRequest, request: Request, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == payload.email).first()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+    if is_disposable_email(payload.email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Disposable email addresses are not allowed")
+
+    client_ip = extract_client_ip(request)
+    if settings.TURNSTILE_SECRET_KEY:
+        if not payload.turnstileToken:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Turnstile token is required")
+        if not await verify_turnstile_token(payload.turnstileToken, client_ip):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Turnstile verification failed")
+
+    signup_ip_hash = hash_abuse_signal(client_ip)
+    device_fingerprint_hash = hash_abuse_signal(payload.deviceFingerprint)
+    trial_blocked_reason = determine_trial_block_reason(
+        db,
+        signup_ip_hash=signup_ip_hash,
+        device_fingerprint_hash=device_fingerprint_hash,
+    )
+    trial_credits = settings.TRIAL_INITIAL_EDIT_CREDITS if trial_blocked_reason is None else 0
+    trial_granted_at = datetime.utcnow() if trial_credits > 0 else None
 
     user = User(
         email=payload.email,
@@ -162,7 +207,12 @@ async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         name=payload.name,
         is_active=True,
         license_status="inactive",
-        trial_edit_credits_remaining=2,
+        trial_edit_credits_remaining=trial_credits,
+        trial_blocked_reason=trial_blocked_reason,
+        trial_granted_at=trial_granted_at,
+        signup_ip_hash=signup_ip_hash,
+        last_ip_hash=signup_ip_hash,
+        device_fingerprint_hash=device_fingerprint_hash,
     )
     db.add(user)
     try:
@@ -191,10 +241,12 @@ async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, db: Session = Depends(get_db)):
+async def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+    user.last_ip_hash = hash_abuse_signal(extract_client_ip(request))
+    db.commit()
 
     access_token = create_access_token(
         data={"sub": str(user.id)},

@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast'
 import { authService } from '@/services/auth.service'
 import { getApiErrorMessage } from '@/utils/api-error'
 import { getCurrentUser, updateCurrentUser, type SessionUser } from '@/utils/session'
+import { getTrialBlockedMessage } from '@/utils/trial'
 
 export function Profile() {
   const { toast } = useToast()
@@ -18,6 +19,7 @@ export function Profile() {
   const [copied, setCopied] = useState(false)
   const trialEditCredits = Math.max(user?.trialEditCreditsRemaining || 0, 0)
   const isLicensed = user?.licenseStatus === 'active'
+  const trialBlockedReason = user?.trialBlockedReason
 
   useEffect(() => {
     const loadUser = async () => {
@@ -195,6 +197,8 @@ export function Profile() {
           <div className="mb-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.05] p-5 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             {trialEditCredits > 0 ? (
               <>Sua conta recebeu {trialEditCredits} edicao{trialEditCredits === 1 ? '' : 'es'} gratis para testar apenas a area de Editar Imagem.</>
+            ) : trialBlockedReason ? (
+              <>{getTrialBlockedMessage(trialBlockedReason)}</>
             ) : (
               <>Seu trial gratis de edicao ja foi usado. Ative a chave recebida no checkout externo para liberar Criar Identidade, Gerar Imagem e Galeria.</>
             )}

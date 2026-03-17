@@ -9,8 +9,8 @@ export const authService = {
     return response.data
   },
 
-  async register(email: string, password: string, name: string): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/auth/register', { email, password, name })
+  async register(email: string, password: string, name: string, deviceFingerprint?: string, turnstileToken?: string): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', { email, password, name, deviceFingerprint, turnstileToken })
     setSession(response.data.access_token, response.data.refresh_token, response.data.user)
     return response.data
   },

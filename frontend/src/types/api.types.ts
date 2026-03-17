@@ -215,6 +215,7 @@ export interface AuthUser {
   licenseActivatedAt?: string | null;
   licenseExpiresAt?: string | null;
   trialEditCreditsRemaining?: number;
+  trialBlockedReason?: string | null;
   createdAt?: string | null;
 }
 

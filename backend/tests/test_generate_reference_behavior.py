@@ -8,7 +8,7 @@ from app.models.database import LoRAModel, User
 def register_and_activate(client, db_session):
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": "soul@example.com", "password": "strongpass123", "name": "Soul User"},
+        json={"email": "soul@example.com", "password": "strongpass123", "name": "Soul User", "deviceFingerprint": "fingerprint-soul"},
     )
     body = response.json()
     db_user = db_session.query(User).filter(User.id == body["user"]["id"]).first()

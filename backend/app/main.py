@@ -36,6 +36,11 @@ def _ensure_user_columns(engine) -> None:
         "license_activated_at": "ALTER TABLE users ADD COLUMN license_activated_at TIMESTAMP",
         "license_expires_at": "ALTER TABLE users ADD COLUMN license_expires_at TIMESTAMP",
         "trial_edit_credits_remaining": "ALTER TABLE users ADD COLUMN trial_edit_credits_remaining INTEGER DEFAULT 2",
+        "trial_blocked_reason": "ALTER TABLE users ADD COLUMN trial_blocked_reason VARCHAR(100)",
+        "trial_granted_at": "ALTER TABLE users ADD COLUMN trial_granted_at TIMESTAMP",
+        "signup_ip_hash": "ALTER TABLE users ADD COLUMN signup_ip_hash VARCHAR(64)",
+        "last_ip_hash": "ALTER TABLE users ADD COLUMN last_ip_hash VARCHAR(64)",
+        "device_fingerprint_hash": "ALTER TABLE users ADD COLUMN device_fingerprint_hash VARCHAR(64)",
     }
 
     with engine.begin() as connection:
