@@ -80,12 +80,12 @@ export interface EditImagesUploadResponse {
   message: string;
   batchId: string;
   userId: string;
-  saved: Array<{ path: string; filename: string; size: number; contentType: string }>;
+  saved: Array<{ path: string; publicUrl?: string; filename: string; size: number; contentType: string }>;
 }
 
 export interface ReferencePhotosUploadResponse {
   ok: boolean;
-  saved: Array<{ path: string; filename: string; size: number; contentType: string }>;
+  saved: Array<{ path: string; publicUrl?: string; filename: string; size: number; contentType: string }>;
   message: string;
   userId: string;
   modelName: string;

@@ -467,7 +467,8 @@ async def generate_image_edit(
     uploaded_urls: list[str] = []
     async with httpx.AsyncClient(timeout=120.0) as client:
         for normalized_path in normalized_paths:
-            source_response = await client.get(f"{settings.internal_api_base_url}{normalized_path}")
+            source_url = normalized_path if normalized_path.startswith(("http://", "https://")) else f"{settings.internal_api_base_url}{normalized_path}"
+            source_response = await client.get(source_url)
             if source_response.status_code != 200:
                 raise HTTPException(status_code=400, detail=f"Falha ao ler imagem: {normalized_path}")
             file_name = normalized_path.rsplit("/", 1)[-1]
