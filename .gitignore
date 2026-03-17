@@ -28,3 +28,6 @@ test.db
 backend/area69.db
 backend/render.env
 backend/.certs/
+area69-license-seed.txt
+backend/area69-license-seed.txt
+seed-licenses.txt
