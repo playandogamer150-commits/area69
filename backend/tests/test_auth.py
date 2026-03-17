@@ -46,6 +46,7 @@ def test_register_user(client, test_user_data):
     assert response.status_code == 200
     assert "access_token" in response.json()
     assert response.json()["user"]["email"] == test_user_data["email"]
+    assert response.json()["user"]["trialEditCreditsRemaining"] == 2
 
 
 def test_register_duplicate_email(client, test_user_data):

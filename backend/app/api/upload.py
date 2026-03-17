@@ -8,7 +8,7 @@ from typing import List
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.core.config import settings
-from app.core.security import get_current_licensed_user
+from app.core.security import get_current_image_edit_user, get_current_licensed_user
 from app.models.database import User
 from app.services.r2_storage import R2Storage
 
@@ -140,7 +140,7 @@ async def upload_reference_photos(
 async def upload_edit_images(
     images: List[UploadFile] = File(..., description="Imagens para edicao WaveSpeed (1 a 6)"),
     userId: str = Form(..., min_length=1, description="ID unico do usuario"),
-    current_user: User = Depends(get_current_licensed_user),
+    current_user: User = Depends(get_current_image_edit_user),
 ):
     normalized_user_id = ensure_request_user_matches_current(userId, current_user)
     if len(images) < 1:

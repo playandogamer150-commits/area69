@@ -33,7 +33,7 @@ from app.services.higgsfield_service import HiggsfieldService
 from app.services.replicate_service import ReplicateService
 from app.services.r2_storage import R2Storage
 from app.services.wavespeed_service import WaveSpeedService
-from app.core.security import get_current_licensed_user
+from app.core.security import get_current_active_user, get_current_image_edit_user, get_current_licensed_user, user_has_active_license
 from app.storage import validate_user_storage_path
 
 logger = logging.getLogger(__name__)
@@ -134,6 +134,16 @@ def aspect_ratio_dimensions(aspect_ratio: str, resolution: str) -> tuple[int, in
 def ensure_task_belongs_to_user(entity_user_id: int, current_user: User) -> None:
     if entity_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Resource does not belong to the current user")
+
+
+def consume_image_edit_trial_credit_if_needed(current_user: User) -> None:
+    if user_has_active_license(current_user):
+        return
+
+    remaining = max(current_user.trial_edit_credits_remaining or 0, 0)
+    if remaining <= 0:
+        raise HTTPException(status_code=403, detail="Image edit trial exhausted")
+    current_user.trial_edit_credits_remaining = remaining - 1
 
 
 async def persist_remote_image_to_r2(image_url: str, storage_key: str) -> str:
@@ -331,7 +341,7 @@ async def generate_image(
 async def get_generation_status(
     task_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_licensed_user),
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get generation task status."""
     generation = db.query(Generation).filter(
@@ -341,6 +351,8 @@ async def get_generation_status(
     if not generation:
         raise HTTPException(status_code=404, detail="Task not found")
     ensure_task_belongs_to_user(generation.user_id, current_user)
+    if generation.task_type != "image_edit" and not user_has_active_license(current_user):
+        raise HTTPException(status_code=403, detail="Active license required")
         
     if generation.status in ("pending", "created", "processing", "queued", "in_progress") and task_id.startswith("hf_"):
         try:
@@ -440,7 +452,7 @@ async def get_generation_status(
 async def generate_image_edit(
     request: ImageEditRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_licensed_user),
+    current_user: User = Depends(get_current_image_edit_user),
 ):
     allowed_prefixes = (
         f"/storage/{current_user.id}/image-edits/",
@@ -494,6 +506,7 @@ async def generate_image_edit(
         raise HTTPException(status_code=result.get("status_code", 500), detail=result["error"])
 
     task_id = result.get("id") or result.get("taskId") or result.get("request_id") or f"edit_{uuid.uuid4().hex[:12]}"
+    consume_image_edit_trial_credit_if_needed(current_user)
     generation = Generation(
         user_id=current_user.id,
         task_id=task_id,

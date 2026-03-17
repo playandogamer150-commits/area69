@@ -8,6 +8,7 @@ export interface SessionUser {
   licenseKey?: string | null
   licenseActivatedAt?: string | null
   licenseExpiresAt?: string | null
+  trialEditCreditsRemaining?: number
   createdAt?: string | null
 }
 
@@ -58,4 +59,13 @@ export function hasActiveSession() {
 export function hasActiveLicense() {
   const user = getCurrentUser()
   return (user?.licenseStatus || 'inactive') === 'active'
+}
+
+export function getTrialEditCreditsRemaining() {
+  const user = getCurrentUser()
+  return Math.max(user?.trialEditCreditsRemaining || 0, 0)
+}
+
+export function canUseImageEdit() {
+  return hasActiveLicense() || getTrialEditCreditsRemaining() > 0
 }

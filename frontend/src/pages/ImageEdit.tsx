@@ -17,10 +17,12 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
+import { authService } from '@/services/auth.service'
 import { galleryService } from '@/services/gallery.service'
 import { imageEditService } from '@/services/image-edit.service'
 import { type ImageEditHistoryItem, inferLegacyGallerySourceType, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
 import { getApiErrorMessage } from '@/utils/api-error'
+import { getCurrentUser } from '@/utils/session'
 
 const aspectRatios = [
   { label: '1:1', w: 1024, h: 1024 },
@@ -54,6 +56,8 @@ export function ImageEdit() {
   const [history, setHistory] = useState<ImageEditHistoryItem[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
   const [latestResultGalleryId, setLatestResultGalleryId] = useState<string | null>(null)
+  const [isLicensed, setIsLicensed] = useState(() => getCurrentUser()?.licenseStatus === 'active')
+  const [trialCreditsRemaining, setTrialCreditsRemaining] = useState(() => Math.max(getCurrentUser()?.trialEditCreditsRemaining || 0, 0))
   const fileInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
@@ -178,6 +182,16 @@ export function ImageEdit() {
     setHistory((current) => [savedItem, ...current.filter((item) => item.id !== savedItem.id)].slice(0, 12))
   }
 
+  const refreshTrialCredits = async () => {
+    try {
+      const currentUser = await authService.getCurrentUser()
+      setIsLicensed(currentUser.licenseStatus === 'active')
+      setTrialCreditsRemaining(Math.max(currentUser.trialEditCreditsRemaining || 0, 0))
+    } catch {
+      // request interceptor handles invalid session
+    }
+  }
+
   const pollStatus = async (taskId: string) => {
     try {
       const response = await imageEditService.getStatus(taskId)
@@ -216,6 +230,7 @@ export function ImageEdit() {
         size: `${width}*${height}`,
         seed: Number(seed || '-1'),
       })
+      await refreshTrialCredits()
 
       if (response.status === 'completed' && response.imageUrl) {
         setResultImage(response.imageUrl)
@@ -308,6 +323,17 @@ export function ImageEdit() {
       >
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Editar Imagem</h1>
       </motion.div>
+
+      {!isLicensed && trialCreditsRemaining > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05 }}
+          className="mb-6 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] p-4 text-sm text-gray-200 shadow-[0_2px_12px_rgba(16,185,129,0.08)]"
+        >
+          Trial ativo: voce ainda tem {trialCreditsRemaining} edicao{trialCreditsRemaining === 1 ? '' : 'es'} gratis nesta conta.
+        </motion.div>
+      )}
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <motion.div

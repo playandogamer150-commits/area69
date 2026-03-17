@@ -15,6 +15,14 @@ pwd_context = CryptContext(schemes=["pbkdf2_sha256", "bcrypt"], deprecated="auto
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
+def user_has_active_license(user: User) -> bool:
+    return (user.license_status or "inactive") == "active"
+
+
+def user_has_image_edit_trial_access(user: User) -> bool:
+    return user_has_active_license(user) or max(user.trial_edit_credits_remaining or 0, 0) > 0
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     normalized = hashlib.sha256(plain_password.encode("utf-8")).hexdigest()
     return pwd_context.verify(normalized, hashed_password)
@@ -85,6 +93,14 @@ async def get_current_active_user(
 async def get_current_licensed_user(
     current_user: User = Depends(get_current_active_user)
 ) -> User:
-    if (current_user.license_status or "inactive") != "active":
+    if not user_has_active_license(current_user):
         raise HTTPException(status_code=403, detail="Active license required")
+    return current_user
+
+
+async def get_current_image_edit_user(
+    current_user: User = Depends(get_current_active_user)
+) -> User:
+    if not user_has_image_edit_trial_access(current_user):
+        raise HTTPException(status_code=403, detail="Image edit trial exhausted")
     return current_user

@@ -16,6 +16,8 @@ export function Profile() {
   const [profileSaved, setProfileSaved] = useState(false)
   const [activating, setActivating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const trialEditCredits = Math.max(user?.trialEditCreditsRemaining || 0, 0)
+  const isLicensed = user?.licenseStatus === 'active'
 
   useEffect(() => {
     const loadUser = async () => {
@@ -165,9 +167,9 @@ export function Profile() {
           <Shield className="h-5 w-5 text-red-500" />
           <h2 className="text-lg font-bold text-white">Licenca</h2>
         </div>
-        <p className="mb-6 ml-[30px] text-xs text-gray-500">Ative sua chave manual para liberar a plataforma</p>
+        <p className="mb-6 ml-[30px] text-xs text-gray-500">Edite imagens gratis primeiro ou ative sua chave manual para liberar a plataforma completa</p>
 
-        <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
             <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Status</p>
             <div className="flex items-center gap-2">
@@ -183,7 +185,21 @@ export function Profile() {
             <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Plano</p>
             <span className="text-sm font-semibold text-white">{user?.licensePlan || 'Nao ativado'}</span>
           </div>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
+            <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Trial de edicao</p>
+            <span className="text-sm font-semibold text-white">{trialEditCredits} restante{trialEditCredits === 1 ? '' : 's'}</span>
+          </div>
         </div>
+
+        {!isLicensed && (
+          <div className="mb-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.05] p-5 text-sm text-gray-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            {trialEditCredits > 0 ? (
+              <>Sua conta recebeu {trialEditCredits} edicao{trialEditCredits === 1 ? '' : 'es'} gratis para testar apenas a area de Editar Imagem.</>
+            ) : (
+              <>Seu trial gratis de edicao ja foi usado. Ative a chave recebida no checkout externo para liberar Criar Identidade, Gerar Imagem e Galeria.</>
+            )}
+          </div>
+        )}
 
         <div className="mb-6">
           <p className="mb-2 text-[11px] uppercase tracking-wider text-gray-500">Chave atual</p>

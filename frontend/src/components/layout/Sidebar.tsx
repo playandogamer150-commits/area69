@@ -13,7 +13,7 @@ import {
   Video,
   X,
 } from 'lucide-react'
-import { getCurrentUser, hasActiveLicense } from '@/utils/session'
+import { canUseImageEdit, getCurrentUser, getTrialEditCreditsRemaining, hasActiveLicense } from '@/utils/session'
 
 interface SidebarProps {
   collapsed: boolean
@@ -36,15 +36,23 @@ const navItems: NavItem[] = [
   { label: 'Gerar Imagem', icon: Image, path: '/generate' },
   { label: 'Editar Imagem', icon: Edit, path: '/edit-image' },
   { label: 'Face Swap', icon: Repeat2, path: '/faceswap', badge: 'EM BREVE', disabled: true },
-  { label: 'Gerar Vídeo', icon: Video, path: '/video', badge: 'EM BREVE', disabled: true },
+  { label: 'Gerar Video', icon: Video, path: '/video', badge: 'EM BREVE', disabled: true },
   { label: 'Galeria', icon: GalleryHorizontalEnd, path: '/gallery' },
   { label: 'Perfil', icon: User, path: '/profile' },
 ]
 
 export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: SidebarProps) {
   const licensed = hasActiveLicense()
+  const canEditImage = canUseImageEdit()
+  const trialEditCredits = getTrialEditCreditsRemaining()
   const user = getCurrentUser()
-  const blockedRoutes = new Set(['/identity', '/generate', '/edit-image', '/gallery'])
+  const blockedRoutes = new Set(['/identity', '/generate', '/gallery'])
+
+  const profileLabel = licensed
+    ? 'Licenca e Perfil'
+    : canEditImage
+      ? `${trialEditCredits} edicao${trialEditCredits === 1 ? '' : 'es'} gratis`
+      : 'Ative sua licenca'
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
@@ -69,7 +77,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
               to="/profile"
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-600/25 bg-red-600/10 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-red-400 shadow-[0_2px_8px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.03)] transition-all hover:bg-red-600/15"
             >
-              {licensed ? 'Licença e Perfil' : 'Ative sua licença'}
+              {profileLabel}
             </NavLink>
           </motion.div>
         )}
@@ -77,7 +85,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-2.5 py-3">
         {navItems.map((item) => {
-          const locked = !licensed && blockedRoutes.has(item.path)
+          const locked = item.path === '/edit-image' ? !canEditImage : !licensed && blockedRoutes.has(item.path)
 
           if (item.disabled || locked) {
             return (
@@ -139,7 +147,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
 
       {!collapsed && (
         <div className="px-4 pb-3 text-[11px] leading-relaxed text-gray-600">
-          {user?.email ? `Conectado como ${user.email}` : 'Sessão ativa'}
+          {user?.email ? `Conectado como ${user.email}` : 'Sessao ativa'}
         </div>
       )}
 

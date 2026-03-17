@@ -35,6 +35,7 @@ def _ensure_user_columns(engine) -> None:
         "license_plan": "ALTER TABLE users ADD COLUMN license_plan VARCHAR(100)",
         "license_activated_at": "ALTER TABLE users ADD COLUMN license_activated_at TIMESTAMP",
         "license_expires_at": "ALTER TABLE users ADD COLUMN license_expires_at TIMESTAMP",
+        "trial_edit_credits_remaining": "ALTER TABLE users ADD COLUMN trial_edit_credits_remaining INTEGER DEFAULT 2",
     }
 
     with engine.begin() as connection:

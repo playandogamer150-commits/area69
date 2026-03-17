@@ -18,7 +18,7 @@ import {
 import { userService } from '@/services/user.service'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import type { DashboardActivityItem, DashboardStatsResponse } from '@/types/api.types'
-import { hasActiveLicense } from '@/utils/session'
+import { canUseImageEdit, getTrialEditCreditsRemaining, hasActiveLicense } from '@/utils/session'
 
 const emptyStats: DashboardStatsResponse = {
   identities: 0,
@@ -41,6 +41,7 @@ interface QuickAction {
 const quickActions: QuickAction[] = [
   { label: 'Criar Nova Identidade', icon: UserPlus, path: '/identity', primary: true },
   { label: 'Gerar Imagem', icon: Image, path: '/generate', primary: false },
+  { label: 'Editar Imagem', icon: Wand2, path: '/edit-image', primary: false },
   { label: 'Face Swap', icon: RefreshCcw, path: '/faceswap', primary: false, disabled: true },
 ]
 
@@ -77,6 +78,8 @@ export function Dashboard() {
   const [stats, setStats] = useState<DashboardStatsResponse>(emptyStats)
   const userId = useCurrentUserId()
   const licensed = hasActiveLicense()
+  const canEditImage = canUseImageEdit()
+  const trialEditCredits = getTrialEditCreditsRemaining()
   const hasTrainingIdentities = stats.recentActivity.some(
     (item) => item.type === 'identity' && item.status.toLowerCase() === 'training',
   )
@@ -199,7 +202,10 @@ export function Dashboard() {
         className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
       >
         {quickActions.map((action) => {
-          const locked = !licensed
+          const locked =
+            action.path === '/edit-image'
+              ? !canEditImage
+              : !licensed
 
           const content = (
             <div
@@ -230,14 +236,39 @@ export function Dashboard() {
 
       {!licensed && (
         <div className="mb-8 rounded-xl border border-red-600/15 bg-red-600/[0.05] p-5 shadow-[0_2px_12px_rgba(220,38,38,0.08)]">
-          <p className="font-semibold text-red-400">Ative sua licenca para liberar as ferramentas</p>
-          <p className="mt-1 text-sm text-gray-400">Seu cadastro ja esta pronto. O proximo passo e ativar a chave na pagina de perfil.</p>
-          <Link
-            to="/profile"
-            className="mt-4 inline-flex rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(220,38,38,0.3)]"
-          >
-            Ativar licenca
-          </Link>
+          {canEditImage ? (
+            <>
+              <p className="font-semibold text-red-400">Seu trial gratis esta ativo</p>
+              <p className="mt-1 text-sm text-gray-400">
+                Voce ainda pode testar {trialEditCredits} edicao{trialEditCredits === 1 ? '' : 'es'} de imagem antes de ativar a licenca completa.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  to="/edit-image"
+                  className="inline-flex rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(220,38,38,0.3)]"
+                >
+                  Testar edicao de imagem
+                </Link>
+                <Link
+                  to="/profile"
+                  className="inline-flex rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-gray-200"
+                >
+                  Ativar licenca completa
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-red-400">Ative sua licenca para liberar as ferramentas</p>
+              <p className="mt-1 text-sm text-gray-400">Seu trial gratis ja foi usado. O proximo passo e ativar a chave na pagina de perfil.</p>
+              <Link
+                to="/profile"
+                className="mt-4 inline-flex rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(220,38,38,0.3)]"
+              >
+                Ativar licenca
+              </Link>
+            </>
+          )}
         </div>
       )}
 

@@ -214,6 +214,7 @@ export interface AuthUser {
   licenseKey?: string | null;
   licenseActivatedAt?: string | null;
   licenseExpiresAt?: string | null;
+  trialEditCreditsRemaining?: number;
   createdAt?: string | null;
 }
 

@@ -110,6 +110,7 @@ def serialize_user(user: User) -> dict:
         "licenseKey": user.license_key,
         "licenseActivatedAt": user.license_activated_at.isoformat() if user.license_activated_at else None,
         "licenseExpiresAt": user.license_expires_at.isoformat() if user.license_expires_at else None,
+        "trialEditCreditsRemaining": max(user.trial_edit_credits_remaining or 0, 0),
         "createdAt": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -161,6 +162,7 @@ async def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         name=payload.name,
         is_active=True,
         license_status="inactive",
+        trial_edit_credits_remaining=2,
     )
     db.add(user)
     try:

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ImageEditRoute } from '@/components/auth/ImageEditRoute'
 import { LicensedRoute } from '@/components/auth/LicensedRoute'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { ToastProvider } from '@/hooks/useToast'
@@ -28,7 +29,7 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/identity" element={<LicensedRoute><IdentityCreation /></LicensedRoute>} />
               <Route path="/generate" element={<LicensedRoute><ImageGeneration /></LicensedRoute>} />
-              <Route path="/edit-image" element={<LicensedRoute><ImageEdit /></LicensedRoute>} />
+              <Route path="/edit-image" element={<ImageEditRoute><ImageEdit /></ImageEditRoute>} />
               <Route path="/faceswap" element={<Navigate to="/dashboard" replace />} />
               <Route path="/video" element={<Navigate to="/dashboard" replace />} />
               <Route path="/gallery" element={<LicensedRoute><Gallery /></LicensedRoute>} />

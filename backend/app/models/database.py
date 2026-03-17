@@ -58,6 +58,7 @@ class User(Base):
     license_plan = Column(String(100), nullable=True)
     license_activated_at = Column(DateTime, nullable=True)
     license_expires_at = Column(DateTime, nullable=True)
+    trial_edit_credits_remaining = Column(Integer, default=2, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
