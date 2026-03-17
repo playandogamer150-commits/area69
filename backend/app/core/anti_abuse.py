@@ -11,6 +11,8 @@ from app.core.config import settings
 from app.core.disposable_email_domains import DISPOSABLE_EMAIL_DOMAINS
 from app.models.database import User
 
+SOCIAL_TRIAL_PROVIDERS = {"google", "discord"}
+
 
 def extract_client_ip(request: Request) -> str:
     forwarded_for = request.headers.get("x-forwarded-for", "").strip()
@@ -35,6 +37,10 @@ def is_disposable_email(email: str) -> bool:
     return domain in DISPOSABLE_EMAIL_DOMAINS
 
 
+def normalize_auth_provider(auth_provider: str | None) -> str:
+    return (auth_provider or "password").strip().lower()
+
+
 async def verify_turnstile_token(token: str, remote_ip: str | None = None) -> bool:
     if not settings.TURNSTILE_SECRET_KEY:
         return True
@@ -53,9 +59,12 @@ async def verify_turnstile_token(token: str, remote_ip: str | None = None) -> bo
 def determine_trial_block_reason(
     db: Session,
     *,
+    auth_provider: str | None,
     signup_ip_hash: str | None,
     device_fingerprint_hash: str | None,
 ) -> str | None:
+    if normalize_auth_provider(auth_provider) not in SOCIAL_TRIAL_PROVIDERS:
+        return "social_login_required"
     if not device_fingerprint_hash:
         return "missing_fingerprint"
 

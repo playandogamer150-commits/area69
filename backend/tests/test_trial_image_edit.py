@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from io import BytesIO
 from unittest.mock import AsyncMock
 
@@ -13,6 +14,16 @@ def register_user(client, email: str, password: str = "strongpass123", name: str
     )
     assert response.status_code == 200
     return response.json()
+
+
+def grant_social_trial(db_session, user_id: int, *, credits: int = 2) -> None:
+    db_user = db_session.query(User).filter(User.id == user_id).first()
+    assert db_user is not None
+    db_user.auth_provider = "google"
+    db_user.trial_edit_credits_remaining = credits
+    db_user.trial_blocked_reason = None
+    db_user.trial_granted_at = datetime.utcnow() if credits > 0 else None
+    db_session.commit()
 
 
 class FakeImageResponse:
@@ -37,8 +48,9 @@ class FakeAsyncClient:
         return FakeImageResponse()
 
 
-def test_trial_user_can_upload_edit_images_without_license(client, monkeypatch):
+def test_trial_user_can_upload_edit_images_without_license(client, db_session, monkeypatch):
     register_response = register_user(client, "trial-upload@example.com")
+    grant_social_trial(db_session, register_response["user"]["id"])
 
     monkeypatch.setattr(
         "app.api.upload.R2Storage.upload_file_async",
@@ -58,6 +70,7 @@ def test_trial_user_can_upload_edit_images_without_license(client, monkeypatch):
 def test_trial_image_edit_consumes_credit(client, db_session, monkeypatch):
     register_response = register_user(client, "trial-edit@example.com")
     user_id = register_response["user"]["id"]
+    grant_social_trial(db_session, user_id)
 
     monkeypatch.setattr("app.api.v1.endpoints.generate.settings.WAVESPEED_API_KEY", "test-key")
     monkeypatch.setattr("app.api.v1.endpoints.generate.httpx.AsyncClient", FakeAsyncClient)
@@ -99,7 +112,9 @@ def test_trial_user_is_blocked_when_edit_credits_run_out(client, db_session):
 
     db_user = db_session.query(User).filter(User.id == user_id).first()
     assert db_user is not None
+    db_user.auth_provider = "google"
     db_user.trial_edit_credits_remaining = 0
+    db_user.trial_granted_at = None
     db_session.commit()
 
     response = client.post(
@@ -119,6 +134,7 @@ def test_trial_user_can_read_own_image_edit_status_even_without_credits(client, 
 
     db_user = db_session.query(User).filter(User.id == user_id).first()
     assert db_user is not None
+    db_user.auth_provider = "google"
     db_user.trial_edit_credits_remaining = 0
 
     db_session.add(

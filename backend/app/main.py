@@ -30,6 +30,7 @@ def _ensure_user_columns(engine) -> None:
 
     existing_columns = {column["name"] for column in inspector.get_columns("users")}
     missing_columns = {
+        "auth_provider": "ALTER TABLE users ADD COLUMN auth_provider VARCHAR(50) DEFAULT 'password'",
         "license_key": "ALTER TABLE users ADD COLUMN license_key VARCHAR(128)",
         "license_status": "ALTER TABLE users ADD COLUMN license_status VARCHAR(50) DEFAULT 'inactive'",
         "license_plan": "ALTER TABLE users ADD COLUMN license_plan VARCHAR(100)",

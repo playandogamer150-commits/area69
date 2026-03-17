@@ -1,5 +1,7 @@
 export function getTrialBlockedMessage(reason?: string | null) {
   switch (reason) {
+    case 'social_login_required':
+      return 'O trial gratuito e liberado apenas para login com Google ou Discord.'
     case 'device_limit':
       return 'O trial gratuito ja foi usado neste dispositivo.'
     case 'ip_limit':

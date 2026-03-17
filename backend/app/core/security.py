@@ -8,6 +8,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
+from app.core.anti_abuse import SOCIAL_TRIAL_PROVIDERS, normalize_auth_provider
 from app.core.config import settings
 from app.models.database import User, get_db
 
@@ -19,8 +20,30 @@ def user_has_active_license(user: User) -> bool:
     return (user.license_status or "inactive") == "active"
 
 
+def user_auth_provider(user: User) -> str:
+    return normalize_auth_provider(user.auth_provider)
+
+
+def user_has_social_trial_provider(user: User) -> bool:
+    return user_auth_provider(user) in SOCIAL_TRIAL_PROVIDERS
+
+
+def user_trial_edit_credits_remaining(user: User) -> int:
+    if not user_has_social_trial_provider(user):
+        return 0
+    return max(user.trial_edit_credits_remaining or 0, 0)
+
+
+def user_trial_blocked_reason(user: User) -> str | None:
+    if user_has_active_license(user):
+        return None
+    if user_has_social_trial_provider(user):
+        return user.trial_blocked_reason
+    return user.trial_blocked_reason or "social_login_required"
+
+
 def user_has_image_edit_trial_access(user: User) -> bool:
-    return user_has_active_license(user) or max(user.trial_edit_credits_remaining or 0, 0) > 0
+    return user_has_active_license(user) or user_trial_edit_credits_remaining(user) > 0
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

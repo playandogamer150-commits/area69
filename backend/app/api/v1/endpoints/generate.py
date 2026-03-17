@@ -33,7 +33,13 @@ from app.services.higgsfield_service import HiggsfieldService
 from app.services.replicate_service import ReplicateService
 from app.services.r2_storage import R2Storage
 from app.services.wavespeed_service import WaveSpeedService
-from app.core.security import get_current_active_user, get_current_image_edit_user, get_current_licensed_user, user_has_active_license
+from app.core.security import (
+    get_current_active_user,
+    get_current_image_edit_user,
+    get_current_licensed_user,
+    user_has_active_license,
+    user_trial_edit_credits_remaining,
+)
 from app.storage import validate_user_storage_path
 
 logger = logging.getLogger(__name__)
@@ -140,7 +146,7 @@ def consume_image_edit_trial_credit_if_needed(current_user: User) -> None:
     if user_has_active_license(current_user):
         return
 
-    remaining = max(current_user.trial_edit_credits_remaining or 0, 0)
+    remaining = user_trial_edit_credits_remaining(current_user)
     if remaining <= 0:
         raise HTTPException(status_code=403, detail="Image edit trial exhausted")
     current_user.trial_edit_credits_remaining = remaining - 1

@@ -208,6 +208,7 @@ export interface AuthUser {
   id: number;
   email: string;
   name?: string | null;
+  authProvider?: string | null;
   isActive?: boolean;
   licenseStatus?: string;
   licensePlan?: string | null;

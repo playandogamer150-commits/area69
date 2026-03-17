@@ -169,7 +169,7 @@ export function Profile() {
           <Shield className="h-5 w-5 text-red-500" />
           <h2 className="text-lg font-bold text-white">Licenca</h2>
         </div>
-        <p className="mb-6 ml-[30px] text-xs text-gray-500">Edite imagens gratis primeiro ou ative sua chave manual para liberar a plataforma completa</p>
+        <p className="mb-6 ml-[30px] text-xs text-gray-500">O trial gratis fica reservado para login com Google ou Discord. A chave manual libera a plataforma completa.</p>
 
         <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">

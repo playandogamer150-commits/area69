@@ -19,7 +19,15 @@ from app.core.anti_abuse import (
     verify_turnstile_token,
 )
 from app.core.config import settings
-from app.core.security import create_access_token, create_refresh_token, get_current_user, get_password_hash, verify_password
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    get_current_user,
+    get_password_hash,
+    user_trial_blocked_reason,
+    user_trial_edit_credits_remaining,
+    verify_password,
+)
 from app.models.database import LicenseKey, User, get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -129,14 +137,15 @@ def serialize_user(user: User) -> dict:
         "id": user.id,
         "email": user.email,
         "name": user.name,
+        "authProvider": user.auth_provider or "password",
         "isActive": user.is_active,
         "licenseStatus": user.license_status or "inactive",
         "licensePlan": user.license_plan,
         "licenseKey": user.license_key,
         "licenseActivatedAt": user.license_activated_at.isoformat() if user.license_activated_at else None,
         "licenseExpiresAt": user.license_expires_at.isoformat() if user.license_expires_at else None,
-        "trialEditCreditsRemaining": max(user.trial_edit_credits_remaining or 0, 0),
-        "trialBlockedReason": user.trial_blocked_reason,
+        "trialEditCreditsRemaining": user_trial_edit_credits_remaining(user),
+        "trialBlockedReason": user_trial_blocked_reason(user),
         "createdAt": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -195,6 +204,7 @@ async def register(payload: RegisterRequest, request: Request, db: Session = Dep
     device_fingerprint_hash = hash_abuse_signal(payload.deviceFingerprint)
     trial_blocked_reason = determine_trial_block_reason(
         db,
+        auth_provider="password",
         signup_ip_hash=signup_ip_hash,
         device_fingerprint_hash=device_fingerprint_hash,
     )
@@ -205,6 +215,7 @@ async def register(payload: RegisterRequest, request: Request, db: Session = Dep
         email=payload.email,
         hashed_password=get_password_hash(payload.password),
         name=payload.name,
+        auth_provider="password",
         is_active=True,
         license_status="inactive",
         trial_edit_credits_remaining=trial_credits,

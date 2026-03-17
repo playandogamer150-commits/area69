@@ -1,8 +1,9 @@
+from datetime import datetime
 from unittest.mock import AsyncMock
 
-import pytest
-
+from app.core.anti_abuse import determine_trial_block_reason
 from app.core.security import create_access_token, decode_token, get_password_hash, verify_password
+from app.models.database import User
 
 
 def test_password_hashing():
@@ -48,7 +49,9 @@ def test_register_user(client, test_user_data):
     assert response.status_code == 200
     assert "access_token" in response.json()
     assert response.json()["user"]["email"] == test_user_data["email"]
-    assert response.json()["user"]["trialEditCreditsRemaining"] == 2
+    assert response.json()["user"]["authProvider"] == "password"
+    assert response.json()["user"]["trialEditCreditsRemaining"] == 0
+    assert response.json()["user"]["trialBlockedReason"] == "social_login_required"
 
 
 def test_register_duplicate_email(client, test_user_data):
@@ -166,57 +169,81 @@ def test_register_rejects_disposable_email_domain(client, test_user_data):
     assert response.json()["detail"] == "Disposable email addresses are not allowed"
 
 
-def test_register_blocks_trial_for_reused_device_fingerprint(client, test_user_data):
-    first_payload = {**test_user_data, "email": "first@example.com", "deviceFingerprint": "same-device"}
-    second_payload = {**test_user_data, "email": "second@example.com", "deviceFingerprint": "same-device"}
-
-    first = client.post(
-        "/api/v1/auth/register",
-        json=first_payload,
-        headers={"x-forwarded-for": "203.0.113.10"},
-    )
-    second = client.post(
-        "/api/v1/auth/register",
-        json=second_payload,
-        headers={"x-forwarded-for": "203.0.113.11"},
-    )
-
-    assert first.status_code == 200
-    assert first.json()["user"]["trialEditCreditsRemaining"] == 2
-    assert second.status_code == 200
-    assert second.json()["user"]["trialEditCreditsRemaining"] == 0
-    assert second.json()["user"]["trialBlockedReason"] == "device_limit"
-
-
-def test_register_without_device_fingerprint_creates_account_without_trial(client, test_user_data):
-    payload = {key: value for key, value in test_user_data.items() if key != "deviceFingerprint"}
-
-    response = client.post("/api/v1/auth/register", json=payload)
+def test_password_signup_never_receives_trial_even_with_clean_email(client, test_user_data):
+    response = client.post("/api/v1/auth/register", json=test_user_data)
 
     assert response.status_code == 200
     assert response.json()["user"]["trialEditCreditsRemaining"] == 0
-    assert response.json()["user"]["trialBlockedReason"] == "missing_fingerprint"
+    assert response.json()["user"]["trialBlockedReason"] == "social_login_required"
 
 
-def test_register_blocks_trial_when_ip_limit_is_reached(client, test_user_data):
-    for index in range(2):
-        response = client.post(
-            "/api/v1/auth/register",
-            json={**test_user_data, "email": f"user{index}@example.com", "deviceFingerprint": f"device-{index}"},
-            headers={"x-forwarded-for": "198.51.100.5"},
+def test_social_trial_policy_blocks_reused_device_fingerprint(db_session):
+    db_session.add(
+        User(
+            email="google-user@example.com",
+            hashed_password="hash",
+            auth_provider="google",
+            device_fingerprint_hash="same-device",
+            signup_ip_hash="ip-a",
+            trial_granted_at=datetime.utcnow(),
         )
-        assert response.status_code == 200
-        assert response.json()["user"]["trialEditCreditsRemaining"] == 2
+    )
+    db_session.commit()
 
-    blocked = client.post(
-        "/api/v1/auth/register",
-        json={**test_user_data, "email": "blocked@example.com", "deviceFingerprint": "device-3"},
-        headers={"x-forwarded-for": "198.51.100.5"},
+    reason = determine_trial_block_reason(
+        db_session,
+        auth_provider="google",
+        signup_ip_hash="ip-b",
+        device_fingerprint_hash="same-device",
     )
 
-    assert blocked.status_code == 200
-    assert blocked.json()["user"]["trialEditCreditsRemaining"] == 0
-    assert blocked.json()["user"]["trialBlockedReason"] == "ip_limit"
+    assert reason == "device_limit"
+
+
+def test_social_trial_policy_requires_device_fingerprint(db_session):
+    reason = determine_trial_block_reason(
+        db_session,
+        auth_provider="google",
+        signup_ip_hash="ip-a",
+        device_fingerprint_hash=None,
+    )
+
+    assert reason == "missing_fingerprint"
+
+
+def test_social_trial_policy_blocks_trial_when_ip_limit_is_reached(db_session, monkeypatch):
+    monkeypatch.setattr("app.core.anti_abuse.settings.TRIAL_MAX_ACCOUNTS_PER_IP", 1)
+    db_session.add(
+        User(
+            email="google-user@example.com",
+            hashed_password="hash",
+            auth_provider="google",
+            device_fingerprint_hash="device-a",
+            signup_ip_hash="same-ip",
+            trial_granted_at=datetime.utcnow(),
+        )
+    )
+    db_session.commit()
+
+    reason = determine_trial_block_reason(
+        db_session,
+        auth_provider="google",
+        signup_ip_hash="same-ip",
+        device_fingerprint_hash="device-b",
+    )
+
+    assert reason == "ip_limit"
+
+
+def test_social_trial_policy_requires_social_provider(db_session):
+    reason = determine_trial_block_reason(
+        db_session,
+        auth_provider="password",
+        signup_ip_hash="same-ip",
+        device_fingerprint_hash="device-a",
+    )
+
+    assert reason == "social_login_required"
 
 
 def test_register_requires_valid_turnstile_when_secret_is_configured(client, monkeypatch, test_user_data):

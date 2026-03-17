@@ -51,6 +51,7 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     name = Column(String(255), nullable=True)
+    auth_provider = Column(String(50), default="password", nullable=False)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     license_key = Column(String(128), unique=True, nullable=True)
