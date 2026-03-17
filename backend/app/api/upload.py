@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from app.core.config import settings
 from app.core.security import get_current_licensed_user
 from app.models.database import User
+from app.services.r2_storage import R2Storage
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["Upload"])
@@ -58,6 +59,23 @@ def validate_image_file(photo: UploadFile, allowed_types: list[str] | None = Non
         )
 
 
+async def upload_bytes_to_r2(
+    *,
+    content: bytes,
+    storage_key: str,
+    content_type: str,
+) -> str:
+    result = await R2Storage().upload_file_async(
+        file_content=content,
+        file_name=storage_key,
+        content_type=content_type,
+        is_public=True,
+    )
+    if not result.get("ok") or not result.get("file_url"):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Falha ao enviar arquivo para o storage")
+    return result["file_url"]
+
+
 @router.post("/reference-photos")
 async def upload_reference_photos(
     referencePhotos: List[UploadFile] = File(..., description="Fotos de referencia para Soul ID"),
@@ -80,23 +98,23 @@ async def upload_reference_photos(
     for photo in selected_reference_photos:
         validate_image_file(photo)
 
-    upload_dir = settings.storage_path / normalized_user_id / safe_model_name
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    relative_root = f"/storage/{normalized_user_id}/{safe_model_name}"
     saved_files = []
     for photo in selected_reference_photos:
         file_id = str(uuid.uuid4())
         file_ext = photo.filename.split(".")[-1] if "." in photo.filename else "jpg"
-        file_path = upload_dir / f"{file_id}.{file_ext}"
         content = await photo.read()
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
+        storage_key = f"users/{normalized_user_id}/{safe_model_name}/{file_id}.{file_ext}"
+        public_url = await upload_bytes_to_r2(
+            content=content,
+            storage_key=storage_key,
+            content_type=photo.content_type or "image/jpeg",
+        )
 
         saved_files.append(
             {
                 "filename": f"{file_id}.{file_ext}",
-                "path": f"{relative_root}/{file_id}.{file_ext}",
+                "path": public_url,
+                "publicUrl": public_url,
                 "size": len(content),
                 "contentType": photo.content_type,
             }
@@ -141,23 +159,23 @@ async def upload_edit_images(
         validate_image_file(image)
 
     batch_id = str(uuid.uuid4())
-    upload_dir = settings.storage_path / normalized_user_id / "image-edits" / batch_id
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
     saved_files = []
-    relative_root = f"/storage/{normalized_user_id}/image-edits/{batch_id}"
     for image in images:
         file_id = str(uuid.uuid4())
         file_ext = image.filename.split(".")[-1] if "." in image.filename else "jpg"
-        file_path = upload_dir / f"{file_id}.{file_ext}"
         content = await image.read()
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
+        storage_key = f"users/{normalized_user_id}/image-edits/{batch_id}/{file_id}.{file_ext}"
+        public_url = await upload_bytes_to_r2(
+            content=content,
+            storage_key=storage_key,
+            content_type=image.content_type or "image/jpeg",
+        )
 
         saved_files.append(
             {
                 "filename": f"{file_id}.{file_ext}",
-                "path": f"{relative_root}/{file_id}.{file_ext}",
+                "path": public_url,
+                "publicUrl": public_url,
                 "size": len(content),
                 "contentType": image.content_type,
             }
@@ -196,25 +214,22 @@ async def upload_generate_reference_images(
         validate_image_file(image, ALLOWED_GENERATION_REFERENCE_TYPES)
 
     batch_id = str(uuid.uuid4())
-    upload_dir = settings.storage_path / normalized_user_id / "generate-references" / batch_id
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
     saved_files = []
-    relative_root = f"/storage/{normalized_user_id}/generate-references/{batch_id}"
     for image in images:
         file_id = str(uuid.uuid4())
         file_ext = image.filename.split(".")[-1] if "." in image.filename else "jpg"
-        file_path = upload_dir / f"{file_id}.{file_ext}"
         content = await image.read()
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
-
-        relative_path = f"{relative_root}/{file_id}.{file_ext}"
+        storage_key = f"users/{normalized_user_id}/generate-references/{batch_id}/{file_id}.{file_ext}"
+        public_url = await upload_bytes_to_r2(
+            content=content,
+            storage_key=storage_key,
+            content_type=image.content_type or "image/jpeg",
+        )
         saved_files.append(
             {
                 "filename": f"{file_id}.{file_ext}",
-                "path": relative_path,
-                "publicUrl": f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{relative_path}",
+                "path": public_url,
+                "publicUrl": public_url,
                 "size": len(content),
                 "contentType": image.content_type,
             }
