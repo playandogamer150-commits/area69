@@ -16,7 +16,6 @@ from app.api.v1.endpoints import health as health_routes
 from app.api.v1.endpoints import lora as lora_routes
 from app.api.v1.endpoints import generate as generate_routes
 from app.api.v1.endpoints import user as user_routes
-from app.api.v1.endpoints import payments as payments_routes
 from app.api.v1.endpoints import webhooks as webhook_routes
 from app.api import upload as upload_routes
 from app.core.config import settings
@@ -98,7 +97,6 @@ def create_app() -> FastAPI:
     app.include_router(lora_routes.router, prefix="/api/v1")
     app.include_router(generate_routes.router, prefix="/api/v1")
     app.include_router(user_routes.router, prefix="/api/v1")
-    app.include_router(payments_routes.router, prefix="/api/v1")
     app.include_router(webhook_routes.router, prefix="/api/v1")
     app.include_router(upload_routes.router, prefix="/api/v1")
 

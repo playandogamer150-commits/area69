@@ -83,27 +83,6 @@ class LicenseKey(Base):
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-
-class PaymentCharge(Base):
-    __tablename__ = "payment_charges"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    provider = Column(String(50), nullable=False, default="efi")
-    method = Column(String(30), nullable=False, default="pix")
-    status = Column(String(50), nullable=False, default="pending")
-    amount_cents = Column(Integer, nullable=False)
-    description = Column(String(255), nullable=True)
-    external_id = Column(String(255), unique=True, nullable=True, index=True)
-    txid = Column(String(255), unique=True, nullable=True, index=True)
-    pix_copy_paste = Column(Text, nullable=True)
-    qr_code_image = Column(Text, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
-    paid_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 class GalleryItem(Base):
     __tablename__ = "gallery_items"
     __table_args__ = (UniqueConstraint("user_id", "client_id", name="uq_gallery_user_client"),)

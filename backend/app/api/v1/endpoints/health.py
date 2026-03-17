@@ -10,7 +10,6 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.models.database import engine
-from app.services.efi_pix_service import EfiPixService
 from app.services.higgsfield_service import HiggsfieldService
 from app.services.r2_storage import R2Storage
 from app.services.wavespeed_service import WaveSpeedService
@@ -153,35 +152,6 @@ async def check_wavespeed_health() -> dict:
         await service.client.aclose()
 
 
-async def check_efi_health() -> dict:
-    start_time = time.perf_counter()
-    service = EfiPixService(settings)
-    if not service.is_configured():
-        return {
-            "status": "error",
-            "critical": True,
-            "detail": "missing_config",
-            "latencyMs": _duration_ms(start_time),
-        }
-
-    try:
-        token = await service._token()
-        return {
-            "status": "ok",
-            "critical": True,
-            "detail": "authenticated",
-            "latencyMs": _duration_ms(start_time),
-            "tokenPrefix": token[:6] if token else None,
-        }
-    except Exception as exc:
-        return {
-            "status": "error",
-            "critical": True,
-            "detail": str(exc),
-            "latencyMs": _duration_ms(start_time),
-        }
-
-
 def check_processing_mode() -> dict:
     return {
         "status": "ok",
@@ -204,7 +174,6 @@ async def readiness() -> JSONResponse:
     checks = {
         "database": await check_database_health(),
         "storage": await check_r2_health(),
-        "payments": await check_efi_health(),
         "generation": {
             "higgsfield": await check_higgsfield_health(),
             "wavespeed": await check_wavespeed_health(),
@@ -215,7 +184,6 @@ async def readiness() -> JSONResponse:
     critical_checks = [
         checks["database"],
         checks["storage"],
-        checks["payments"],
         checks["generation"]["higgsfield"],
         checks["generation"]["wavespeed"],
     ]

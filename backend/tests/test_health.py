@@ -16,7 +16,6 @@ def test_readiness_returns_200_when_all_critical_checks_pass(client, monkeypatch
     ok_check = {"status": "ok", "critical": True, "latencyMs": 1.0}
     monkeypatch.setattr("app.api.v1.endpoints.health.check_database_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr("app.api.v1.endpoints.health.check_r2_health", AsyncMock(return_value=ok_check))
-    monkeypatch.setattr("app.api.v1.endpoints.health.check_efi_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr("app.api.v1.endpoints.health.check_higgsfield_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr("app.api.v1.endpoints.health.check_wavespeed_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr(
@@ -38,7 +37,6 @@ def test_readiness_returns_503_when_a_critical_check_fails(client, monkeypatch):
     failing_check = {"status": "error", "critical": True, "latencyMs": 2.0, "detail": "missing_config"}
     monkeypatch.setattr("app.api.v1.endpoints.health.check_database_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr("app.api.v1.endpoints.health.check_r2_health", AsyncMock(return_value=failing_check))
-    monkeypatch.setattr("app.api.v1.endpoints.health.check_efi_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr("app.api.v1.endpoints.health.check_higgsfield_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr("app.api.v1.endpoints.health.check_wavespeed_health", AsyncMock(return_value=ok_check))
     monkeypatch.setattr(

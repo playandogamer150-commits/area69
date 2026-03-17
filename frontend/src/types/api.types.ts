@@ -224,21 +224,6 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
-export interface PixCharge {
-  id: number;
-  provider: string;
-  method: 'pix';
-  status: string;
-  amountCents: number;
-  description?: string | null;
-  txid?: string | null;
-  pixCopyPaste?: string | null;
-  qrCodeImage?: string | null;
-  expiresAt?: string | null;
-  paidAt?: string | null;
-  createdAt?: string | null;
-}
-
 export type GallerySourceType = 'image_edit' | 'image_generation' | 'legacy'
 
 export interface GalleryItem {
