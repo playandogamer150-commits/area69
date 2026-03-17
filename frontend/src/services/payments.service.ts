@@ -11,4 +11,9 @@ export const paymentsService = {
     const response = await api.get<{ charge: PixCharge | null }>('/payments/pix/latest')
     return response.data.charge
   },
+
+  async refreshPixChargeStatus(): Promise<PixCharge | null> {
+    const response = await api.get<{ charge: PixCharge | null }>('/payments/pix/latest')
+    return response.data.charge
+  },
 }
