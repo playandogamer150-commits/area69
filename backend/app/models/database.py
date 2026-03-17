@@ -65,6 +65,7 @@ class User(Base):
     generations = relationship("Generation", back_populates="user")
     face_swap_tasks = relationship("FaceSwapTask", back_populates="user")
     video_tasks = relationship("VideoTask", back_populates="user")
+    gallery_items = relationship("GalleryItem", back_populates="user", cascade="all, delete-orphan")
 
 
 class LicenseKey(Base):
@@ -101,6 +102,24 @@ class PaymentCharge(Base):
     paid_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class GalleryItem(Base):
+    __tablename__ = "gallery_items"
+    __table_args__ = (UniqueConstraint("user_id", "client_id", name="uq_gallery_user_client"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    client_id = Column(String(128), nullable=False)
+    source_type = Column(String(50), nullable=False, default="legacy")
+    image_url = Column(String(1024), nullable=False)
+    prompt = Column(Text, nullable=False, default="")
+    size = Column(String(100), nullable=False, default="")
+    favorite = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="gallery_items")
 
 
 class LoRAModel(Base):

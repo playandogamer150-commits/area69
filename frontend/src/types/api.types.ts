@@ -238,3 +238,17 @@ export interface PixCharge {
   paidAt?: string | null;
   createdAt?: string | null;
 }
+
+export type GallerySourceType = 'image_edit' | 'image_generation' | 'legacy'
+
+export interface GalleryItem {
+  id: string
+  clientId: string
+  sourceType: GallerySourceType
+  imageUrl: string
+  prompt: string
+  size: string
+  createdAt: string
+  updatedAt?: string
+  favorite?: boolean
+}

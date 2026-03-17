@@ -6,6 +6,7 @@ import {
   Download,
   Eye,
   ImageIcon,
+  Loader2,
   Search,
   SlidersHorizontal,
   Star,
@@ -13,19 +14,73 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { ImageEditHistoryItem, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
+
+import type { GalleryItem } from '@/types/api.types'
+import { useToast } from '@/hooks/useToast'
+import { galleryService } from '@/services/gallery.service'
+import { getApiErrorMessage } from '@/utils/api-error'
+import { inferLegacyGallerySourceType, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
 
 type FilterType = 'all' | 'favorites'
 
 export function Gallery() {
-  const [items, setItems] = useState<ImageEditHistoryItem[]>([])
+  const { toast } = useToast()
+  const [items, setItems] = useState<GalleryItem[]>([])
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
-  const [lightboxItem, setLightboxItem] = useState<ImageEditHistoryItem | null>(null)
+  const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    setItems(loadImageEditHistory())
-  }, [])
+    let cancelled = false
+
+    const hydrateGallery = async () => {
+      setIsLoading(true)
+
+      try {
+        const legacyItems = loadImageEditHistory()
+        if (legacyItems.length > 0) {
+          await Promise.all(
+            legacyItems.map((item) =>
+              galleryService.saveGalleryItem({
+                clientId: item.clientId || item.id,
+                sourceType: item.sourceType || inferLegacyGallerySourceType(item),
+                imageUrl: item.imageUrl,
+                prompt: item.prompt,
+                size: item.size,
+                favorite: item.favorite ?? false,
+                createdAt: item.createdAt,
+              }),
+            ),
+          )
+          saveImageEditHistory([])
+        }
+
+        const galleryItems = await galleryService.getGalleryItems()
+        if (!cancelled) {
+          setItems(galleryItems)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: 'Erro',
+            description: getApiErrorMessage(error, 'Falha ao carregar galeria'),
+            variant: 'destructive',
+          })
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void hydrateGallery()
+
+    return () => {
+      cancelled = true
+    }
+  }, [toast])
 
   const filtered = useMemo(
     () =>
@@ -38,22 +93,38 @@ export function Gallery() {
     [filter, items, search],
   )
 
-  const persist = (nextItems: ImageEditHistoryItem[]) => {
-    setItems(nextItems)
-    saveImageEditHistory(nextItems)
+  const toggleFavorite = async (item: GalleryItem) => {
+    try {
+      const updated = await galleryService.updateFavorite(item.id, !item.favorite)
+      setItems((current) =>
+        current
+          .map((entry) => (entry.id === updated.id ? updated : entry))
+          .sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.createdAt.localeCompare(a.createdAt)),
+      )
+      setLightboxItem((current) => (current?.id === updated.id ? updated : current))
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: getApiErrorMessage(error, 'Falha ao atualizar favorito'),
+        variant: 'destructive',
+      })
+    }
   }
 
-  const toggleFavorite = (id: string) => {
-    const nextItems = items.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
-    nextItems.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.createdAt.localeCompare(a.createdAt))
-    persist(nextItems)
-    setLightboxItem((current) => (current?.id === id ? { ...current, favorite: !current.favorite } : current))
-  }
-
-  const removeItem = (id: string) => {
-    const nextItems = items.filter((item) => item.id !== id)
-    persist(nextItems)
-    if (lightboxItem?.id === id) setLightboxItem(null)
+  const removeItem = async (item: GalleryItem) => {
+    try {
+      await galleryService.deleteGalleryItem(item.id)
+      setItems((current) => current.filter((entry) => entry.id !== item.id))
+      if (lightboxItem?.id === item.id) {
+        setLightboxItem(null)
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: getApiErrorMessage(error, 'Falha ao remover item da galeria'),
+        variant: 'destructive',
+      })
+    }
   }
 
   const navigateLightbox = (direction: -1 | 1) => {
@@ -120,7 +191,12 @@ export function Gallery() {
         </span>
       </motion.div>
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-red-500" />
+          <p className="text-sm text-gray-500">Sincronizando galeria...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center gap-4 py-20">
           <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03]">
             <ImageIcon className="h-7 w-7 text-gray-600" />
@@ -163,11 +239,11 @@ export function Gallery() {
                         {
                           icon: item.favorite ? StarOff : Star,
                           label: item.favorite ? 'Desfavoritar' : 'Favoritar',
-                          onClick: () => toggleFavorite(item.id),
+                          onClick: () => void toggleFavorite(item),
                           danger: false,
                         },
                         { icon: Download, label: 'Baixar', onClick: () => window.open(item.imageUrl, '_blank', 'noopener,noreferrer'), danger: false },
-                        { icon: Trash2, label: 'Remover', onClick: () => removeItem(item.id), danger: true },
+                        { icon: Trash2, label: 'Remover', onClick: () => void removeItem(item), danger: true },
                       ].map((action) => (
                         <button
                           key={action.label}
@@ -265,7 +341,7 @@ export function Gallery() {
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => toggleFavorite(lightboxItem.id)}
+                    onClick={() => void toggleFavorite(lightboxItem)}
                     className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold tracking-wide transition-all ${
                       lightboxItem.favorite
                         ? 'border-yellow-500/25 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20'
@@ -283,7 +359,7 @@ export function Gallery() {
                     Baixar
                   </button>
                   <button
-                    onClick={() => removeItem(lightboxItem.id)}
+                    onClick={() => void removeItem(lightboxItem)}
                     className="ml-auto flex items-center gap-1.5 rounded-lg border border-red-600/15 bg-red-600/[0.06] px-3 py-2 text-[11px] font-semibold tracking-wide text-red-400/70 transition-all hover:bg-red-600/15 hover:text-red-400"
                   >
                     <Trash2 className="h-3 w-3" />
