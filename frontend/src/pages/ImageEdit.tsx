@@ -17,8 +17,9 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
+import { galleryService } from '@/services/gallery.service'
 import { imageEditService } from '@/services/image-edit.service'
-import { type ImageEditHistoryItem, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
+import { type ImageEditHistoryItem, inferLegacyGallerySourceType, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
 import { getApiErrorMessage } from '@/utils/api-error'
 
 const aspectRatios = [
@@ -51,6 +52,8 @@ export function ImageEdit() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [resultImage, setResultImage] = useState<string | null>(null)
   const [history, setHistory] = useState<ImageEditHistoryItem[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [latestResultGalleryId, setLatestResultGalleryId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
@@ -58,16 +61,56 @@ export function ImageEdit() {
   const userId = useCurrentUserId()
 
   useEffect(() => {
-    setHistory(loadImageEditHistory())
+    let cancelled = false
+
+    const loadHistory = async () => {
+      setIsLoadingHistory(true)
+
+      try {
+        const legacyItems = loadImageEditHistory()
+        if (legacyItems.length > 0) {
+          await Promise.all(
+            legacyItems.map((item) =>
+              galleryService.saveGalleryItem({
+                clientId: item.clientId || item.id,
+                sourceType: item.sourceType || inferLegacyGallerySourceType(item),
+                imageUrl: item.imageUrl,
+                prompt: item.prompt,
+                size: item.size,
+                favorite: item.favorite ?? false,
+                createdAt: item.createdAt,
+              }),
+            ),
+          )
+          saveImageEditHistory([])
+        }
+
+        const items = await galleryService.getGalleryItems('image_edit')
+        if (!cancelled) {
+          setHistory(items)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast({
+            title: 'Erro',
+            description: getApiErrorMessage(error, 'Falha ao carregar historico de edicao'),
+            variant: 'destructive',
+          })
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingHistory(false)
+        }
+      }
+    }
+
+    void loadHistory()
+
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current)
+      cancelled = true
     }
-  }, [])
-
-  const persistHistory = (items: ImageEditHistoryItem[]) => {
-    setHistory(items)
-    saveImageEditHistory(items)
-  }
+  }, [toast])
 
   const handleFiles = (incoming: FileList | null) => {
     if (!incoming) return
@@ -120,17 +163,19 @@ export function ImageEdit() {
     setSelectedRatio('')
   }
 
-  const pushHistoryItem = (imageUrl: string, taskId: string) => {
-    const nextItem: ImageEditHistoryItem = {
-      id: taskId,
+  const pushHistoryItem = async (imageUrl: string, taskId: string) => {
+    const savedItem = await galleryService.saveGalleryItem({
+      clientId: taskId,
+      sourceType: 'image_edit',
       imageUrl,
       prompt,
       size: `${width}*${height}`,
       createdAt: new Date().toISOString(),
       favorite: false,
-    }
-    const deduped = history.filter((item) => item.id !== taskId)
-    persistHistory([nextItem, ...deduped].slice(0, 12))
+    })
+
+    setLatestResultGalleryId(savedItem.id)
+    setHistory((current) => [savedItem, ...current.filter((item) => item.id !== savedItem.id)].slice(0, 12))
   }
 
   const pollStatus = async (taskId: string) => {
@@ -138,7 +183,7 @@ export function ImageEdit() {
       const response = await imageEditService.getStatus(taskId)
       if (response.status === 'completed' && response.imageUrl) {
         setResultImage(response.imageUrl)
-        pushHistoryItem(response.imageUrl, taskId)
+        await pushHistoryItem(response.imageUrl, taskId)
         setIsProcessing(false)
         if (pollingRef.current) clearInterval(pollingRef.current)
         toast({ title: 'Sucesso', description: 'Edicao concluida com sucesso!' })
@@ -174,7 +219,7 @@ export function ImageEdit() {
 
       if (response.status === 'completed' && response.imageUrl) {
         setResultImage(response.imageUrl)
-        pushHistoryItem(response.imageUrl, response.taskId)
+        await pushHistoryItem(response.imageUrl, response.taskId)
         setIsProcessing(false)
       } else if (response.taskId) {
         if (pollingRef.current) clearInterval(pollingRef.current)
@@ -194,18 +239,60 @@ export function ImageEdit() {
   const restoreHistoryItem = (item: ImageEditHistoryItem) => {
     setPrompt(item.prompt)
     setResultImage(item.imageUrl)
+    setLatestResultGalleryId(item.id)
     const [savedWidth, savedHeight] = item.size.split('*').map(Number)
     if (savedWidth) setWidth(savedWidth)
     if (savedHeight) setHeight(savedHeight)
   }
 
-  const removeHistory = (id: string) => persistHistory(history.filter((item) => item.id !== id))
-  const clearHistory = () => persistHistory([])
+  const removeHistory = async (id: string) => {
+    try {
+      await galleryService.deleteGalleryItem(id)
+      setHistory((current) => current.filter((item) => item.id !== id))
+      if (latestResultGalleryId === id) {
+        setLatestResultGalleryId(null)
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: getApiErrorMessage(error, 'Falha ao remover item do historico'),
+        variant: 'destructive',
+      })
+    }
+  }
 
-  const toggleFavorite = (id: string) => {
-    const updated = history.map((item) => (item.id === id ? { ...item, favorite: !item.favorite } : item))
-    updated.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.createdAt.localeCompare(a.createdAt))
-    persistHistory(updated)
+  const clearHistory = async () => {
+    try {
+      await galleryService.clearGallery('image_edit')
+      setHistory([])
+      setLatestResultGalleryId(null)
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: getApiErrorMessage(error, 'Falha ao limpar historico'),
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const toggleFavorite = async (id: string) => {
+    const target = history.find((item) => item.id === id)
+    if (!target) return
+
+    try {
+      const updatedItem = await galleryService.updateFavorite(id, !target.favorite)
+      setHistory((current) =>
+        current
+          .map((item) => (item.id === updatedItem.id ? updatedItem : item))
+          .sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.createdAt.localeCompare(a.createdAt)),
+      )
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: getApiErrorMessage(error, 'Falha ao atualizar favorito'),
+        variant: 'destructive',
+      })
+    }
   }
 
   const pct = (value: number) => ((value - MIN_SIZE) / (MAX_SIZE - MIN_SIZE)) * 100
@@ -478,7 +565,7 @@ export function ImageEdit() {
               </div>
               {history.length > 0 && (
                 <button
-                  onClick={clearHistory}
+                  onClick={() => void clearHistory()}
                   className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-semibold tracking-wide text-gray-400 transition-all hover:bg-white/[0.07] hover:text-white"
                 >
                   <Trash className="h-3 w-3" />
@@ -487,7 +574,12 @@ export function ImageEdit() {
               )}
             </div>
 
-            {history.length === 0 ? (
+            {isLoadingHistory ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sincronizando historico...
+              </div>
+            ) : history.length === 0 ? (
               <p className="py-6 text-center text-sm text-gray-600">Nenhum historico de edicao ainda.</p>
             ) : (
               <div className="space-y-4">
@@ -513,7 +605,7 @@ export function ImageEdit() {
 
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <button
-                          onClick={() => toggleFavorite(item.id)}
+                          onClick={() => void toggleFavorite(item.id)}
                           className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold tracking-wide transition-all ${
                             item.favorite
                               ? 'border-red-600/25 bg-red-600/15 text-red-400'
@@ -539,7 +631,7 @@ export function ImageEdit() {
                           Baixar
                         </a>
                         <button
-                          onClick={() => removeHistory(item.id)}
+                          onClick={() => void removeHistory(item.id)}
                           className="flex items-center justify-center gap-1.5 rounded-lg border border-red-600/15 bg-red-600/[0.06] px-3 py-2 text-[11px] font-semibold tracking-wide text-red-400/70 transition-all hover:bg-red-600/15 hover:text-red-400"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -629,8 +721,9 @@ export function ImageEdit() {
                 </a>
                 <button
                   onClick={() => {
-                    const item = history[0]
-                    if (item) toggleFavorite(item.id)
+                    if (latestResultGalleryId) {
+                      void toggleFavorite(latestResultGalleryId)
+                    }
                   }}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-semibold tracking-wide text-gray-300 transition-all hover:bg-white/[0.07]"
                 >
