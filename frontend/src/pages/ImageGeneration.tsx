@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/hooks/useToast'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import type { GenerateReferenceImagesUploadResponse, GenerationRequest, LoRAStatus } from '@/types/api.types'
+import { galleryService } from '@/services/gallery.service'
 import { loraService } from '@/services/lora.service'
 import { generateService } from '@/services/generate.service'
 import { getApiErrorMessage } from '@/utils/api-error'
@@ -120,6 +121,7 @@ export function ImageGeneration() {
   const [activePreviewImage, setActivePreviewImage] = useState<string | null>(null)
   const [latestGenerationTaskId, setLatestGenerationTaskId] = useState<string | null>(null)
   const [savedToGallery, setSavedToGallery] = useState(false)
+  const [isSavingToGallery, setIsSavingToGallery] = useState(false)
   const [loras, setLoras] = useState<LoRAStatus[]>([])
   const [referenceImages, setReferenceImages] = useState<UploadedReferenceImage[]>([])
   const { toast } = useToast()
@@ -303,12 +305,49 @@ export function ImageGeneration() {
     }
   }
 
-  const handleSaveToGallery = () => {
+  const handleSaveToGallery = async () => {
     if (!generatedImages.length || !latestGenerationTaskId) return
+
+    setIsSavingToGallery(true)
+
+    try {
+      const createdAt = new Date().toISOString()
+      await Promise.all(
+        generatedImages.map((imageUrl, index) =>
+          galleryService.saveGalleryItem({
+            clientId: `${latestGenerationTaskId}-${index}`,
+            sourceType: 'image_generation',
+            imageUrl,
+            prompt,
+            size: `${resolution} - ${aspectRatio}`,
+            createdAt,
+            favorite: false,
+          }),
+        ),
+      )
+
+      setSavedToGallery(true)
+      toast({
+        title: 'Salvo na galeria',
+        description: `${generatedImages.length} imagem(ns) adicionada(s) na galeria.`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Erro',
+        description: getApiErrorMessage(error, 'Falha ao salvar imagens na galeria'),
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingToGallery(false)
+    }
+
+    return
 
     const createdAt = new Date().toISOString()
     const nextItems: ImageEditHistoryItem[] = generatedImages.map((imageUrl, index) => ({
       id: `${latestGenerationTaskId}-${index}`,
+      clientId: `${latestGenerationTaskId}-${index}`,
+      sourceType: 'image_generation',
       imageUrl,
       prompt,
       size: `${resolution} · ${aspectRatio}`,
@@ -620,16 +659,18 @@ export function ImageGeneration() {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   <button
                     type="button"
-                    onClick={handleSaveToGallery}
-                    disabled={savedToGallery}
+                    onClick={() => void handleSaveToGallery()}
+                    disabled={savedToGallery || isSavingToGallery}
                     className={`flex flex-1 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold tracking-wide transition-all ${
                       savedToGallery
                         ? 'cursor-default border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                        : isSavingToGallery
+                          ? 'cursor-wait border-white/[0.08] bg-white/[0.04] text-gray-500'
                         : 'border-white/[0.08] bg-white/[0.04] text-gray-300 hover:bg-white/[0.07]'
                     }`}
                   >
-                    <Save className="h-3.5 w-3.5" />
-                    {savedToGallery ? 'Salvo na galeria' : 'Salvar na galeria'}
+                    {isSavingToGallery ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    {savedToGallery ? 'Salvo na galeria' : isSavingToGallery ? 'Salvando...' : 'Salvar na galeria'}
                   </button>
                   <a
                     href={activePreviewImage ?? generatedImages[0]}

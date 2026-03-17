@@ -2,12 +2,68 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
-from app.models.database import FaceSwapTask, Generation, LoRAModel, VideoTask, get_db, User
+from app.models.database import FaceSwapTask, GalleryItem, Generation, LoRAModel, VideoTask, get_db, User
 
 router = APIRouter(prefix="/user", tags=["User"])
+
+
+class GalleryItemPayload(BaseModel):
+    clientId: str = Field(min_length=1, max_length=128)
+    imageUrl: str = Field(min_length=1, max_length=1024)
+    prompt: str = Field(default="", max_length=4000)
+    size: str = Field(default="", max_length=100)
+    favorite: bool = False
+    sourceType: str = Field(default="legacy", max_length=50)
+    createdAt: str | None = None
+
+
+class GalleryItemUpdatePayload(BaseModel):
+    favorite: bool
+
+
+def _parse_gallery_created_at(value: str | None) -> datetime:
+    if not value:
+        return datetime.utcnow()
+
+    normalized = value.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return datetime.utcnow()
+
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _serialize_gallery_item(item: GalleryItem) -> dict[str, Any]:
+    return {
+        "id": str(item.id),
+        "clientId": item.client_id,
+        "sourceType": item.source_type,
+        "imageUrl": item.image_url,
+        "prompt": item.prompt or "",
+        "size": item.size or "",
+        "favorite": bool(item.favorite),
+        "createdAt": item.created_at.isoformat() if item.created_at else "",
+        "updatedAt": item.updated_at.isoformat() if item.updated_at else "",
+    }
+
+
+def _get_gallery_item_for_user(db: Session, current_user: User, item_id: str) -> GalleryItem:
+    try:
+        numeric_id = int(item_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Gallery item not found") from exc
+
+    item = db.query(GalleryItem).filter(GalleryItem.id == numeric_id, GalleryItem.user_id == current_user.id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Gallery item not found")
+    return item
 
 def map_status(status: str) -> str:
     if not status:
@@ -154,6 +210,100 @@ def ensure_current_user_matches(user_id: str | None, current_user: User) -> User
     if user_id is not None and user_id.strip() not in {str(current_user.id), current_user.email}:
         raise HTTPException(status_code=403, detail="User mismatch")
     return current_user
+
+
+@router.get("/gallery")
+async def get_gallery_items(
+    sourceType: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(GalleryItem).filter(GalleryItem.user_id == current_user.id)
+    if sourceType:
+        query = query.filter(GalleryItem.source_type == sourceType)
+
+    items = (
+        query.order_by(
+            GalleryItem.favorite.desc(),
+            GalleryItem.created_at.desc(),
+            GalleryItem.id.desc(),
+        ).all()
+    )
+    return [_serialize_gallery_item(item) for item in items]
+
+
+@router.post("/gallery")
+async def save_gallery_item(
+    payload: GalleryItemPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = (
+        db.query(GalleryItem)
+        .filter(GalleryItem.user_id == current_user.id, GalleryItem.client_id == payload.clientId)
+        .first()
+    )
+
+    if item is None:
+        item = GalleryItem(
+            user_id=current_user.id,
+            client_id=payload.clientId,
+            created_at=_parse_gallery_created_at(payload.createdAt),
+        )
+        db.add(item)
+
+    item.source_type = payload.sourceType or "legacy"
+    item.image_url = payload.imageUrl
+    item.prompt = payload.prompt or ""
+    item.size = payload.size or ""
+    item.favorite = payload.favorite
+    if payload.createdAt:
+        item.created_at = _parse_gallery_created_at(payload.createdAt)
+
+    db.commit()
+    db.refresh(item)
+    return _serialize_gallery_item(item)
+
+
+@router.patch("/gallery/{item_id}")
+async def update_gallery_item(
+    item_id: str,
+    payload: GalleryItemUpdatePayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = _get_gallery_item_for_user(db, current_user, item_id)
+    item.favorite = payload.favorite
+    db.commit()
+    db.refresh(item)
+    return _serialize_gallery_item(item)
+
+
+@router.delete("/gallery/{item_id}")
+async def delete_gallery_item(
+    item_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = _get_gallery_item_for_user(db, current_user, item_id)
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/gallery")
+async def clear_gallery_items(
+    sourceType: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = db.query(GalleryItem).filter(GalleryItem.user_id == current_user.id)
+    if sourceType:
+        query = query.filter(GalleryItem.source_type == sourceType)
+
+    deleted = query.delete(synchronize_session=False)
+    db.commit()
+    return {"ok": True, "deleted": deleted}
 
 
 @router.get("/loras")
