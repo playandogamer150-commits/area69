@@ -8,6 +8,25 @@ import { getApiErrorMessage } from '@/utils/api-error'
 import { getCurrentUser, updateCurrentUser, type SessionUser } from '@/utils/session'
 import { getTrialBlockedMessage } from '@/utils/trial'
 
+function providerLabel(provider?: string | null) {
+  if (provider === 'google') return 'Google'
+  if (provider === 'discord') return 'Discord'
+  return 'Email e senha'
+}
+
+function formatAccountDate(value?: string | null) {
+  if (!value) return 'Agora'
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Agora'
+
+  return parsed.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 export function Profile() {
   const { toast } = useToast()
   const [user, setUser] = useState<SessionUser | null>(getCurrentUser())
@@ -105,6 +124,21 @@ export function Profile() {
         </div>
         <p className="mb-6 ml-[30px] text-xs text-gray-500">Atualize seus dados de acesso</p>
 
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
+            <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Metodo de login</p>
+            <span className="text-sm font-semibold text-white">{providerLabel(user?.authProvider)}</span>
+          </div>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
+            <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Membro desde</p>
+            <span className="text-sm font-semibold text-white">{formatAccountDate(user?.createdAt)}</span>
+          </div>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
+            <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Acesso atual</p>
+            <span className="text-sm font-semibold text-white">{isLicensed ? 'Licenca completa' : trialEditCredits > 0 ? 'Trial de edicao' : 'Aguardando licenca'}</span>
+          </div>
+        </div>
+
         <div className="mb-5">
           <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold tracking-wide text-white">
             <Mail className="h-3.5 w-3.5 text-gray-500" />
@@ -169,7 +203,7 @@ export function Profile() {
           <Shield className="h-5 w-5 text-red-500" />
           <h2 className="text-lg font-bold text-white">Licenca</h2>
         </div>
-        <p className="mb-6 ml-[30px] text-xs text-gray-500">O trial gratis fica reservado para login com Google ou Discord. A chave manual libera a plataforma completa.</p>
+        <p className="mb-6 ml-[30px] text-xs text-gray-500">Acompanhe o status do seu acesso e ative a chave manual quando quiser liberar a experiencia completa.</p>
 
         <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">

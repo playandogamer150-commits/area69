@@ -9,6 +9,7 @@ import {
   Layers,
   Loader2,
   RefreshCcw,
+  Shield,
   Sparkles,
   User,
   UserPlus,
@@ -37,6 +38,15 @@ interface QuickAction {
   path: string
   primary: boolean
   disabled?: boolean
+}
+
+interface OnboardingStep {
+  id: string
+  title: string
+  description: string
+  status: 'done' | 'current' | 'locked'
+  ctaLabel?: string
+  ctaPath?: string
 }
 
 const quickActions: QuickAction[] = [
@@ -75,13 +85,47 @@ function statusLabel(status: string) {
   return status
 }
 
+function providerLabel(provider?: string | null) {
+  if (provider === 'google') return 'Google'
+  if (provider === 'discord') return 'Discord'
+  return 'Email'
+}
+
+function stepClasses(status: OnboardingStep['status']) {
+  if (status === 'done') {
+    return {
+      wrapper: 'border-emerald-500/20 bg-emerald-500/[0.08]',
+      badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20',
+      icon: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
+      label: 'Concluido',
+    }
+  }
+
+  if (status === 'current') {
+    return {
+      wrapper: 'border-red-500/20 bg-red-500/[0.08]',
+      badge: 'bg-red-500/15 text-red-200 border border-red-500/20',
+      icon: <Sparkles className="h-4 w-4 text-red-400" />,
+      label: 'Agora',
+    }
+  }
+
+  return {
+    wrapper: 'border-white/[0.08] bg-white/[0.03]',
+    badge: 'bg-white/[0.04] text-gray-400 border border-white/[0.06]',
+    icon: <Clock className="h-4 w-4 text-gray-500" />,
+    label: 'Bloqueado',
+  }
+}
+
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStatsResponse>(emptyStats)
   const userId = useCurrentUserId()
+  const currentUser = getCurrentUser()
   const licensed = hasActiveLicense()
   const canEditImage = canUseImageEdit()
   const trialEditCredits = getTrialEditCreditsRemaining()
-  const trialBlockedReason = getCurrentUser()?.trialBlockedReason
+  const trialBlockedReason = currentUser?.trialBlockedReason
   const hasTrainingIdentities = stats.recentActivity.some(
     (item) => item.type === 'identity' && item.status.toLowerCase() === 'training',
   )
@@ -119,6 +163,16 @@ export function Dashboard() {
   const latestIdentityActivity = useMemo(
     () => stats.recentActivity.find((item) => item.type === 'identity'),
     [stats.recentActivity],
+  )
+
+  const hasEditedImage = useMemo(
+    () => stats.editedImagesToday > 0 || stats.recentActivity.some((item) => item.type === 'image_edit'),
+    [stats.editedImagesToday, stats.recentActivity],
+  )
+
+  const hasGeneratedImage = useMemo(
+    () => stats.generatedImagesToday > 0 || stats.recentActivity.some((item) => item.type === 'image'),
+    [stats.generatedImagesToday, stats.recentActivity],
   )
 
   const identityHighlight = useMemo(() => {
@@ -163,6 +217,66 @@ export function Dashboard() {
     return 'Atividade'
   }
 
+  const onboardingSteps = useMemo<OnboardingStep[]>(() => {
+    const steps: OnboardingStep[] = [
+      {
+        id: 'account',
+        title: 'Conta pronta',
+        description: `Voce entrou com ${providerLabel(currentUser?.authProvider)} e ja pode acessar o painel.`,
+        status: 'done',
+      },
+      {
+        id: 'edit',
+        title: hasEditedImage ? 'Primeira edicao concluida' : 'Teste o editor',
+        description: hasEditedImage
+          ? 'Voce ja validou o fluxo de edicao. Agora o painel fica focado em destravar o resto da plataforma.'
+          : canEditImage
+            ? `Use ${trialEditCredits} credito${trialEditCredits === 1 ? '' : 's'} para sentir a qualidade do produto antes de ativar.`
+            : 'Seu trial nao esta mais disponivel nesta conta.',
+        status: hasEditedImage ? 'done' : canEditImage ? 'current' : 'locked',
+        ctaLabel: !hasEditedImage && canEditImage ? 'Editar imagem' : undefined,
+        ctaPath: !hasEditedImage && canEditImage ? '/edit-image' : undefined,
+      },
+      {
+        id: 'license',
+        title: licensed ? 'Licenca ativa' : 'Desbloqueie o plano completo',
+        description: licensed
+          ? 'Seu acesso completo esta liberado para identidade, geracao e galeria.'
+          : 'Ative a chave recebida no checkout para liberar Soul Character, geracao e galeria sincronizada.',
+        status: licensed ? 'done' : !hasEditedImage && canEditImage ? 'locked' : 'current',
+        ctaLabel: !licensed && (hasEditedImage || !canEditImage) ? 'Ativar licenca' : undefined,
+        ctaPath: !licensed && (hasEditedImage || !canEditImage) ? '/profile' : undefined,
+      },
+      {
+        id: 'identity',
+        title: stats.identities > 0 ? 'Soul ID criado' : 'Crie sua primeira identidade',
+        description:
+          stats.identities > 0
+            ? 'Seu treinamento ja entrou no fluxo. Agora vale gerar uma primeira cena consistente.'
+            : 'Monte a base do personagem com fotos fortes para liberar o melhor resultado nas geracoes.',
+        status: stats.identities > 0 ? 'done' : licensed ? 'current' : 'locked',
+        ctaLabel: stats.identities === 0 && licensed ? 'Criar identidade' : undefined,
+        ctaPath: stats.identities === 0 && licensed ? '/identity' : undefined,
+      },
+      {
+        id: 'generation',
+        title: hasGeneratedImage ? 'Primeira imagem entregue' : 'Gere sua primeira imagem',
+        description: hasGeneratedImage
+          ? 'Seu fluxo principal ja esta ativo. O proximo passo e curar resultados e salvar o que vale na galeria.'
+          : 'Use sua identidade pronta para montar uma cena completa e salvar os melhores resultados.',
+        status: hasGeneratedImage ? 'done' : licensed && stats.identities > 0 ? 'current' : 'locked',
+        ctaLabel: !hasGeneratedImage && licensed && stats.identities > 0 ? 'Gerar imagem' : undefined,
+        ctaPath: !hasGeneratedImage && licensed && stats.identities > 0 ? '/generate' : undefined,
+      },
+    ]
+
+    return steps
+  }, [canEditImage, currentUser?.authProvider, hasEditedImage, hasGeneratedImage, licensed, stats.identities, trialEditCredits])
+
+  const completedOnboardingSteps = onboardingSteps.filter((step) => step.status === 'done').length
+  const activeOnboardingStep = onboardingSteps.find((step) => step.status === 'current') || onboardingSteps[onboardingSteps.length - 1]
+  const onboardingProgress = Math.round((completedOnboardingSteps / onboardingSteps.length) * 100)
+
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
       <motion.div
@@ -173,6 +287,99 @@ export function Dashboard() {
       >
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
         <p className="mt-1 text-sm tracking-wide text-gray-500">Bem-vindo ao AREA 69</p>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.05 }}
+        className="mb-8 overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.2),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] shadow-[0_18px_60px_rgba(0,0,0,0.45)]"
+      >
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.4fr_0.9fr] lg:items-center">
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
+                Proximo passo
+              </span>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
+                Login via {providerLabel(currentUser?.authProvider)}
+              </span>
+            </div>
+            <h2 className="max-w-2xl text-2xl font-bold tracking-tight text-white sm:text-[2rem]">
+              {activeOnboardingStep.title}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">{activeOnboardingStep.description}</p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              {activeOnboardingStep.ctaLabel && activeOnboardingStep.ctaPath ? (
+                <Link
+                  to={activeOnboardingStep.ctaPath}
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {activeOnboardingStep.ctaLabel}
+                </Link>
+              ) : (
+                <Link
+                  to="/gallery"
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Ver galeria
+                </Link>
+              )}
+              <Link
+                to="/profile"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-gray-100 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              >
+                <Shield className="h-4 w-4" />
+                Revisar conta
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/[0.08] bg-black/20 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">Onboarding</p>
+                <p className="mt-1 text-lg font-semibold text-white">{completedOnboardingSteps}/{onboardingSteps.length} etapas prontas</p>
+              </div>
+              <div className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-semibold text-gray-200">
+                {onboardingProgress}%
+              </div>
+            </div>
+
+            <div className="mb-5 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-red-500 via-red-400 to-orange-300"
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.max(onboardingProgress, 8)}%` }}
+                transition={{ duration: 0.45, ease: 'easeOut' }}
+              />
+            </div>
+
+            <div className="space-y-3">
+              {onboardingSteps.map((step) => {
+                const tone = stepClasses(step.status)
+
+                return (
+                  <div key={step.id} className={`rounded-2xl border p-4 ${tone.wrapper}`}>
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        {tone.icon}
+                        <p className="text-sm font-semibold text-white">{step.title}</p>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${tone.badge}`}>
+                        {tone.label}
+                      </span>
+                    </div>
+                    <p className="text-sm leading-6 text-gray-300">{step.description}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
@@ -421,8 +628,31 @@ export function Dashboard() {
               <div className="mb-4 inline-flex rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
                 <Activity className="h-8 w-8 text-gray-600" />
               </div>
-              <p className="text-sm text-gray-500">Nenhuma atividade recente</p>
-              <p className="mt-1 text-xs text-gray-600">Comece criando sua primeira identidade</p>
+              <p className="text-sm text-gray-400">Seu feed ainda esta vazio</p>
+              <p className="mt-1 text-xs text-gray-600">Quando voce editar, criar identidade ou gerar imagens, tudo aparece aqui.</p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                {activeOnboardingStep.ctaLabel && activeOnboardingStep.ctaPath ? (
+                  <Link
+                    to={activeOnboardingStep.ctaPath}
+                    className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.24)] transition hover:bg-red-700"
+                  >
+                    {activeOnboardingStep.ctaLabel}
+                  </Link>
+                ) : (
+                  <Link
+                    to="/generate"
+                    className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.24)] transition hover:bg-red-700"
+                  >
+                    Gerar imagem
+                  </Link>
+                )}
+                <Link
+                  to="/profile"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+                >
+                  Ver perfil
+                </Link>
+              </div>
             </div>
           )}
         </div>
