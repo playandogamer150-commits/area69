@@ -77,11 +77,11 @@ function statusBadgeClasses(status: string) {
 
 function statusLabel(status: string) {
   const normalized = status.toLowerCase()
-  if (normalized === 'ready') return 'Ready'
-  if (normalized === 'training') return 'Training'
-  if (normalized === 'completed') return 'Completed'
-  if (normalized === 'processing') return 'Processing'
-  if (normalized === 'failed') return 'Failed'
+  if (normalized === 'ready') return 'Pronto'
+  if (normalized === 'training') return 'Treinando'
+  if (normalized === 'completed') return 'Concluido'
+  if (normalized === 'processing') return 'Processando'
+  if (normalized === 'failed') return 'Falhou'
   return status
 }
 
@@ -447,7 +447,7 @@ export function Dashboard() {
         <div className="mb-8 rounded-xl border border-red-600/15 bg-red-600/[0.05] p-5 shadow-[0_2px_12px_rgba(220,38,38,0.08)]">
           {canEditImage ? (
             <>
-              <p className="font-semibold text-red-400">Seu trial gratis esta ativo</p>
+              <p className="font-semibold text-red-400">Seu trial gratuito esta ativo</p>
               <p className="mt-1 text-sm text-gray-400">
                 Voce ainda pode testar {trialEditCredits} edicao{trialEditCredits === 1 ? '' : 'es'} de imagem antes de ativar a licenca completa.
               </p>
@@ -470,7 +470,7 @@ export function Dashboard() {
             <>
               <p className="font-semibold text-red-400">Ative sua licenca para liberar as ferramentas</p>
               <p className="mt-1 text-sm text-gray-400">
-                {trialBlockedReason ? getTrialBlockedMessage(trialBlockedReason) : 'Seu trial gratis ja foi usado. O proximo passo e ativar a chave na pagina de perfil.'}
+                {trialBlockedReason ? getTrialBlockedMessage(trialBlockedReason) : 'Seu trial gratuito ja foi usado. O proximo passo e ativar a chave na pagina de perfil.'}
               </p>
               <Link
                 to="/profile"

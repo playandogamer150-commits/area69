@@ -555,7 +555,7 @@ export function ImageGeneration() {
                         <h2 className="text-sm font-semibold text-white">{selectedIdentity.modelName}</h2>
                         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
                           <CheckCircle2 className="h-3 w-3" />
-                          Ready
+                          Pronto
                         </span>
                       </div>
                       <p className="text-xs text-gray-500">
@@ -569,8 +569,8 @@ export function ImageGeneration() {
                 </div>
               )}
 
-              <OptionPills label="Aspect Ratio" value={aspectRatio} onChange={setAspectRatio} options={ASPECT_RATIOS} />
-              <OptionPills label="Resolution" value={resolution} onChange={setResolution} options={RESOLUTIONS} />
+              <OptionPills label="Proporcao" value={aspectRatio} onChange={setAspectRatio} options={ASPECT_RATIOS} />
+              <OptionPills label="Resolucao" value={resolution} onChange={setResolution} options={RESOLUTIONS} />
 
               <div>
                 <label className="mb-2 block text-sm font-semibold tracking-wide text-white">Soul Style</label>
@@ -589,11 +589,11 @@ export function ImageGeneration() {
                 </div>
               </div>
 
-              <OptionPills label="Result Images" value={resultImages} onChange={setResultImages} options={RESULT_IMAGE_OPTIONS} />
+              <OptionPills label="Resultados" value={resultImages} onChange={setResultImages} options={RESULT_IMAGE_OPTIONS} />
 
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <label className="text-sm font-semibold tracking-wide text-white">Image Reference Upload</label>
+                  <label className="text-sm font-semibold tracking-wide text-white">Referencias visuais</label>
                   <span className="text-[11px] text-gray-500">{referenceImages.length}/{MAX_REFERENCE_IMAGES}</span>
                 </div>
 
@@ -617,7 +617,7 @@ export function ImageGeneration() {
                   }`}
                 >
                   {isUploadingReferences ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  Click to upload image PNG, JPG, GIF, WebP up to 10MB
+                  Clique para enviar PNG, JPG, GIF ou WebP ate 10MB
                 </button>
 
                 <p className="mt-2 text-[11px] text-gray-600">
