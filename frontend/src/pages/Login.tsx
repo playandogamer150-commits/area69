@@ -301,14 +301,6 @@ export function Login() {
                       </div>
                     )}
 
-                    {mode === 'login' && (
-                      <div className="flex justify-end">
-                        <button type="button" className="text-xs tracking-wide text-gray-500 transition hover:text-red-400">
-                          Esqueceu a senha?
-                        </button>
-                      </div>
-                    )}
-
                     <motion.button
                       type="submit"
                       disabled={isLoading}

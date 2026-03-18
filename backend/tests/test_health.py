@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
+import httpx
+
+from app.api.v1.endpoints.health import _check_http_provider
 
 
 def test_liveness_health_endpoint(client):
@@ -51,3 +54,50 @@ def test_readiness_returns_503_when_a_critical_check_fails(client, monkeypatch):
     assert body["status"] == "error"
     assert body["ready"] is False
     assert body["checks"]["storage"]["detail"] == "missing_config"
+
+
+class _FakeAsyncClient:
+    def __init__(self, status_code: int):
+        self.status_code = status_code
+
+    async def get(self, path: str, headers: dict[str, str]):
+        request = httpx.Request("GET", f"https://example.test{path}", headers=headers)
+        return httpx.Response(self.status_code, request=request)
+
+
+def _run(coro):
+    import asyncio
+
+    return asyncio.run(coro)
+
+
+def test_http_provider_health_rejects_unexpected_4xx():
+    result = _run(
+        _check_http_provider(
+            configured=True,
+            name="WaveSpeed",
+            client=_FakeAsyncClient(400),
+            path="/predictions/does-not-matter",
+            headers={},
+            allowed_status_codes={200, 404},
+        )
+    )
+
+    assert result["status"] == "error"
+    assert result["detail"] == "unexpected_status:400"
+
+
+def test_http_provider_health_accepts_expected_404():
+    result = _run(
+        _check_http_provider(
+            configured=True,
+            name="Higgsfield",
+            client=_FakeAsyncClient(404),
+            path="/requests/does-not-matter/status",
+            headers={},
+            allowed_status_codes={200, 404},
+        )
+    )
+
+    assert result["status"] == "ok"
+    assert result["detail"] == "reachable"

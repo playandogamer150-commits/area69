@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 import time
 
@@ -80,7 +81,15 @@ async def check_r2_health() -> dict:
         }
 
 
-async def _check_http_provider(*, configured: bool, name: str, client: httpx.AsyncClient, path: str, headers: dict[str, str]) -> dict:
+async def _check_http_provider(
+    *,
+    configured: bool,
+    name: str,
+    client: httpx.AsyncClient,
+    path: str,
+    headers: dict[str, str],
+    allowed_status_codes: Iterable[int],
+) -> dict:
     start_time = time.perf_counter()
     if not configured:
         return {
@@ -92,6 +101,15 @@ async def _check_http_provider(*, configured: bool, name: str, client: httpx.Asy
 
     try:
         response = await client.get(path, headers=headers)
+        allowed_codes = set(allowed_status_codes)
+        if response.status_code in allowed_codes:
+            return {
+                "status": "ok",
+                "critical": True,
+                "detail": "reachable",
+                "statusCode": response.status_code,
+                "latencyMs": _duration_ms(start_time),
+            }
         if response.status_code in {401, 403}:
             return {
                 "status": "error",
@@ -109,9 +127,9 @@ async def _check_http_provider(*, configured: bool, name: str, client: httpx.Asy
                 "latencyMs": _duration_ms(start_time),
             }
         return {
-            "status": "ok",
+            "status": "error",
             "critical": True,
-            "detail": "reachable",
+            "detail": f"unexpected_status:{response.status_code}",
             "statusCode": response.status_code,
             "latencyMs": _duration_ms(start_time),
         }
@@ -133,6 +151,7 @@ async def check_higgsfield_health() -> dict:
             client=service.client,
             path="/requests/00000000-0000-0000-0000-000000000000/status",
             headers=service._request_headers(),
+            allowed_status_codes={200, 404},
         )
     finally:
         await service.client.aclose()
@@ -145,8 +164,9 @@ async def check_wavespeed_health() -> dict:
             configured=bool(service.api_key),
             name="WaveSpeed",
             client=service.client,
-            path="/predictions/health-check",
+            path="/predictions/00000000-0000-0000-0000-000000000000",
             headers=service._headers(),
+            allowed_status_codes={200, 404},
         )
     finally:
         await service.client.aclose()
