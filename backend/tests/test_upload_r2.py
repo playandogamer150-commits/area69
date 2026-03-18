@@ -3,12 +3,21 @@ from __future__ import annotations
 from io import BytesIO
 from unittest.mock import AsyncMock
 
+from app.api.v1.endpoints.auth import _encode_sms_verification_token
 from app.models.database import User
 from app.storage.paths import validate_user_storage_path
 
 
 def register_and_login(client, email: str = "upload@example.com", password: str = "strongpass123") -> tuple[str, dict]:
-    payload = {"email": email, "password": password, "name": "Upload User", "deviceFingerprint": f"fingerprint-{email}"}
+    phone_number = f"+55119{abs(hash(email)) % 100000000:08d}"
+    payload = {
+        "email": email,
+        "password": password,
+        "name": "Upload User",
+        "phoneNumber": phone_number,
+        "smsVerificationToken": _encode_sms_verification_token(phone_number),
+        "deviceFingerprint": f"fingerprint-{email}",
+    }
     response = client.post("/api/v1/auth/register", json=payload)
     body = response.json()
     return body["access_token"], body["user"]

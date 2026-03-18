@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urlparse
 from unittest.mock import AsyncMock
 
 from app.core.anti_abuse import determine_trial_block_reason
+from app.api.v1.endpoints.auth import _encode_sms_verification_token
 from app.core.security import create_access_token, decode_token, get_password_hash, verify_password
 from app.models.database import User
 from app.services.oauth_service import OAuthIdentity
@@ -179,6 +180,31 @@ def test_password_signup_never_receives_trial_even_with_clean_email(client, test
     assert response.json()["user"]["trialBlockedReason"] == "social_login_required"
 
 
+def test_register_requires_valid_sms_verification_token(client, test_user_data):
+    payload = {**test_user_data, "smsVerificationToken": "invalid-token-value-1234567890"}
+
+    response = client.post("/api/v1/auth/register", json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "SMS verification expired or invalid"
+
+
+def test_register_rejects_duplicate_phone_number(client, test_user_data):
+    client.post("/api/v1/auth/register", json=test_user_data)
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            **test_user_data,
+            "email": "other@example.com",
+            "smsVerificationToken": _encode_sms_verification_token(test_user_data["phoneNumber"]),
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Phone number already registered"
+
+
 def test_social_trial_policy_blocks_reused_device_fingerprint(db_session):
     db_session.add(
         User(
@@ -248,29 +274,69 @@ def test_social_trial_policy_requires_social_provider(db_session):
     assert reason == "social_login_required"
 
 
-def test_register_requires_valid_turnstile_when_secret_is_configured(client, monkeypatch, test_user_data):
+def test_send_sms_requires_valid_turnstile_when_secret_is_configured(client, monkeypatch, test_user_data):
     monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TURNSTILE_SECRET_KEY", "turnstile-secret")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_ACCOUNT_SID", "sid")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_AUTH_TOKEN", "token")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_VERIFY_SERVICE_SID", "service")
 
-    response = client.post("/api/v1/auth/register", json=test_user_data)
+    response = client.post("/api/v1/auth/sms/send-code", json={"phoneNumber": test_user_data["phoneNumber"]})
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Turnstile token is required"
 
 
-def test_register_rejects_invalid_turnstile_token(client, monkeypatch, test_user_data):
+def test_send_sms_rejects_invalid_turnstile_token(client, monkeypatch, test_user_data):
     monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TURNSTILE_SECRET_KEY", "turnstile-secret")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_ACCOUNT_SID", "sid")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_AUTH_TOKEN", "token")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_VERIFY_SERVICE_SID", "service")
     monkeypatch.setattr(
         "app.api.v1.endpoints.auth.verify_turnstile_token",
         AsyncMock(return_value=False),
     )
 
     response = client.post(
-        "/api/v1/auth/register",
-        json={**test_user_data, "turnstileToken": "invalid-token"},
+        "/api/v1/auth/sms/send-code",
+        json={"phoneNumber": test_user_data["phoneNumber"], "turnstileToken": "invalid-token"},
     )
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Turnstile verification failed"
+
+
+def test_send_sms_code_dispatches_provider_request(client, monkeypatch, test_user_data):
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_ACCOUNT_SID", "sid")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_AUTH_TOKEN", "token")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_VERIFY_SERVICE_SID", "service")
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.auth.send_sms_verification_code",
+        AsyncMock(return_value=None),
+    )
+
+    response = client.post("/api/v1/auth/sms/send-code", json={"phoneNumber": test_user_data["phoneNumber"]})
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_verify_sms_code_returns_verification_token(client, monkeypatch, test_user_data):
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_ACCOUNT_SID", "sid")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_AUTH_TOKEN", "token")
+    monkeypatch.setattr("app.api.v1.endpoints.auth.settings.TWILIO_VERIFY_SERVICE_SID", "service")
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.auth.check_sms_verification_code",
+        AsyncMock(return_value=True),
+    )
+
+    response = client.post(
+        "/api/v1/auth/sms/verify-code",
+        json={"phoneNumber": test_user_data["phoneNumber"], "code": "123456"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert response.json()["verificationToken"]
 
 
 def test_oauth_start_returns_google_authorization_url(client, monkeypatch):

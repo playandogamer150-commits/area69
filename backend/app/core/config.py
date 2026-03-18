@@ -47,6 +47,14 @@ class Settings(BaseSettings):
         "https://challenges.cloudflare.com/turnstile/v0/siteverify",
         env="TURNSTILE_SITEVERIFY_URL",
     )
+    TWILIO_ACCOUNT_SID: str | None = Field(default=None, env="TWILIO_ACCOUNT_SID")
+    TWILIO_AUTH_TOKEN: str | None = Field(default=None, env="TWILIO_AUTH_TOKEN")
+    TWILIO_VERIFY_SERVICE_SID: str | None = Field(default=None, env="TWILIO_VERIFY_SERVICE_SID")
+    TWILIO_VERIFY_BASE_URL: str = Field(
+        "https://verify.twilio.com/v2",
+        env="TWILIO_VERIFY_BASE_URL",
+    )
+    SMS_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = Field(15, env="SMS_VERIFICATION_TOKEN_EXPIRE_MINUTES")
     TRIAL_INITIAL_EDIT_CREDITS: int = Field(2, env="TRIAL_INITIAL_EDIT_CREDITS")
     TRIAL_MAX_ACCOUNTS_PER_IP: int = Field(2, env="TRIAL_MAX_ACCOUNTS_PER_IP")
     FRONTEND_PUBLIC_URL: str = Field("http://localhost:3000", env="FRONTEND_PUBLIC_URL")
@@ -104,6 +112,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.strip().lower() == "production"
+
+    @property
+    def sms_verification_configured(self) -> bool:
+        return bool(self.TWILIO_ACCOUNT_SID and self.TWILIO_AUTH_TOKEN and self.TWILIO_VERIFY_SERVICE_SID)
 
 
 @lru_cache

@@ -231,6 +231,15 @@ export interface OAuthStartResponse {
   authorizationUrl: string;
 }
 
+export interface SmsVerificationResponse {
+  ok: boolean;
+  message: string;
+}
+
+export interface SmsVerificationCheckResponse extends SmsVerificationResponse {
+  verificationToken: string;
+}
+
 export type GallerySourceType = 'image_edit' | 'image_generation' | 'legacy'
 
 export interface GalleryItem {

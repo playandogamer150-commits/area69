@@ -4,13 +4,22 @@ from datetime import datetime
 from io import BytesIO
 from unittest.mock import AsyncMock
 
+from app.api.v1.endpoints.auth import _encode_sms_verification_token
 from app.models.database import Generation, User
 
 
 def register_user(client, email: str, password: str = "strongpass123", name: str = "Trial User") -> dict:
+    phone_number = f"+55119{abs(hash(email)) % 100000000:08d}"
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": password, "name": name, "deviceFingerprint": f"fingerprint-{email}"},
+        json={
+            "email": email,
+            "password": password,
+            "name": name,
+            "phoneNumber": phone_number,
+            "smsVerificationToken": _encode_sms_verification_token(phone_number),
+            "deviceFingerprint": f"fingerprint-{email}",
+        },
     )
     assert response.status_code == 200
     return response.json()

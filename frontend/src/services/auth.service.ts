@@ -1,5 +1,5 @@
 import api from './api'
-import type { AuthResponse, AuthUser, OAuthStartResponse } from '../types/api.types'
+import type { AuthResponse, AuthUser, OAuthStartResponse, SmsVerificationCheckResponse, SmsVerificationResponse } from '../types/api.types'
 import { clearSession, setSession, updateCurrentUser } from '@/utils/session'
 
 export const authService = {
@@ -9,9 +9,33 @@ export const authService = {
     return response.data
   },
 
-  async register(email: string, password: string, name: string, deviceFingerprint?: string, turnstileToken?: string): Promise<AuthResponse> {
-    const response = await api.post<AuthResponse>('/auth/register', { email, password, name, deviceFingerprint, turnstileToken })
+  async register(
+    email: string,
+    password: string,
+    name: string,
+    phoneNumber: string,
+    smsVerificationToken: string,
+    deviceFingerprint?: string,
+  ): Promise<AuthResponse> {
+    const response = await api.post<AuthResponse>('/auth/register', {
+      email,
+      password,
+      name,
+      phoneNumber,
+      smsVerificationToken,
+      deviceFingerprint,
+    })
     setSession(response.data.access_token, response.data.refresh_token, response.data.user)
+    return response.data
+  },
+
+  async sendSmsVerificationCode(phoneNumber: string, turnstileToken?: string): Promise<SmsVerificationResponse> {
+    const response = await api.post<SmsVerificationResponse>('/auth/sms/send-code', { phoneNumber, turnstileToken })
+    return response.data
+  },
+
+  async verifySmsCode(phoneNumber: string, code: string): Promise<SmsVerificationCheckResponse> {
+    const response = await api.post<SmsVerificationCheckResponse>('/auth/sms/verify-code', { phoneNumber, code })
     return response.data
   },
 

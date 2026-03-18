@@ -2,13 +2,22 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+from app.api.v1.endpoints.auth import _encode_sms_verification_token
 from app.models.database import LoRAModel, User
 
 
 def register_and_activate(client, db_session):
+    phone_number = "+5511988887777"
     response = client.post(
         "/api/v1/auth/register",
-        json={"email": "soul@example.com", "password": "strongpass123", "name": "Soul User", "deviceFingerprint": "fingerprint-soul"},
+        json={
+            "email": "soul@example.com",
+            "password": "strongpass123",
+            "name": "Soul User",
+            "phoneNumber": phone_number,
+            "smsVerificationToken": _encode_sms_verification_token(phone_number),
+            "deviceFingerprint": "fingerprint-soul",
+        },
     )
     body = response.json()
     db_user = db_session.query(User).filter(User.id == body["user"]["id"]).first()
