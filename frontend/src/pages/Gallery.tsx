@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { Link } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,6 +23,27 @@ import { getApiErrorMessage } from '@/utils/api-error'
 import { inferLegacyGallerySourceType, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
 
 type FilterType = 'all' | 'favorites'
+
+function sourceMeta(sourceType: GalleryItem['sourceType']) {
+  if (sourceType === 'image_generation') {
+    return {
+      label: 'Geracao',
+      badge: 'border-red-500/20 bg-red-500/10 text-red-200',
+    }
+  }
+
+  if (sourceType === 'image_edit') {
+    return {
+      label: 'Edicao',
+      badge: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
+    }
+  }
+
+  return {
+    label: 'Legacy',
+    badge: 'border-white/[0.08] bg-white/[0.04] text-gray-300',
+  }
+}
 
 export function Gallery() {
   const { toast } = useToast()
@@ -88,10 +110,18 @@ export function Gallery() {
         if (filter === 'favorites' && !item.favorite) return false
         if (!search.trim()) return true
         const query = search.toLowerCase()
-        return item.prompt.toLowerCase().includes(query) || new Date(item.createdAt).toLocaleString().toLowerCase().includes(query)
+        return (
+          item.prompt.toLowerCase().includes(query) ||
+          new Date(item.createdAt).toLocaleString().toLowerCase().includes(query) ||
+          sourceMeta(item.sourceType).label.toLowerCase().includes(query)
+        )
       }),
     [filter, items, search],
   )
+
+  const favoriteCount = items.filter((item) => item.favorite).length
+  const generationCount = items.filter((item) => item.sourceType === 'image_generation').length
+  const editCount = items.filter((item) => item.sourceType === 'image_edit').length
 
   const toggleFavorite = async (item: GalleryItem) => {
     try {
@@ -152,6 +182,61 @@ export function Gallery() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.05 }}
+        className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.16),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      >
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1.15fr_0.95fr]">
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
+                Biblioteca visual
+              </span>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
+                Sincronizada por conta
+              </span>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-[2rem]">
+              Seus melhores resultados ficam centralizados aqui
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">
+              Use a galeria como biblioteca viva do produto: revise geracoes, compare edicoes, favorite o que vale e baixe rapido o que precisa ir para fora.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                to="/generate"
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+              >
+                Gerar imagem
+              </Link>
+              <Link
+                to="/edit-image"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-gray-100 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              >
+                Editar imagem
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {[
+              { label: 'Total salvo', value: items.length, helper: 'Itens sincronizados na conta' },
+              { label: 'Favoritas', value: favoriteCount, helper: 'Curadoria pronta para revisao' },
+              { label: 'Geracao / Edicao', value: `${generationCount}/${editCount}`, helper: 'Origem dos resultados salvos' },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-white/[0.08] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{item.label}</p>
+                <p className="mt-2 text-2xl font-bold text-white">{item.value}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">{item.helper}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.08 }}
         className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center"
       >
@@ -161,7 +246,7 @@ export function Gallery() {
             type="text"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por prompt..."
+            placeholder="Buscar por prompt, data ou origem..."
             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-white placeholder:text-gray-600 outline-none transition-all focus:border-red-600/40 focus:bg-white/[0.06]"
           />
         </div>
@@ -201,9 +286,26 @@ export function Gallery() {
           <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03]">
             <ImageIcon className="h-7 w-7 text-gray-600" />
           </div>
-          <p className="text-sm text-gray-500">
-            {filter === 'favorites' ? 'Nenhuma imagem favorita.' : 'Nenhuma imagem encontrada.'}
+          <p className="text-sm text-gray-400">{filter === 'favorites' ? 'Nenhuma imagem favorita.' : 'Sua galeria ainda esta vazia.'}</p>
+          <p className="max-w-md text-center text-sm leading-6 text-gray-500">
+            {filter === 'favorites'
+              ? 'Favorite as imagens que representam melhor o produto e monte uma curadoria interna.'
+              : 'Tudo que voce salvar em geracao ou edicao aparece aqui e sincroniza com a sua conta.'}
           </p>
+          <div className="mt-2 flex flex-wrap justify-center gap-3">
+            <Link
+              to="/generate"
+              className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.24)] transition hover:bg-red-700"
+            >
+              Gerar imagem
+            </Link>
+            <Link
+              to="/edit-image"
+              className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+            >
+              Editar imagem
+            </Link>
+          </div>
         </motion.div>
       ) : (
         <motion.div
@@ -225,6 +327,12 @@ export function Gallery() {
               >
                 <div className="relative aspect-[3/4] cursor-pointer overflow-hidden" onClick={() => setLightboxItem(item)}>
                   <img src={item.imageUrl} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+
+                  <div className="absolute left-3 top-3">
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] backdrop-blur-sm ${sourceMeta(item.sourceType).badge}`}>
+                      {sourceMeta(item.sourceType).label}
+                    </span>
+                  </div>
 
                   {item.favorite && (
                     <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-yellow-500/30 bg-black/50 backdrop-blur-sm">
@@ -266,7 +374,12 @@ export function Gallery() {
                 </div>
 
                 <div className="p-4">
-                  <p className="mb-1.5 text-[11px] tracking-wide text-red-400/80">{new Date(item.createdAt).toLocaleString()}</p>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <p className="text-[11px] tracking-wide text-red-400/80">{new Date(item.createdAt).toLocaleString()}</p>
+                    <span className="rounded-full border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-gray-400">
+                      {item.size}
+                    </span>
+                  </div>
                   <p className="line-clamp-2 text-xs leading-relaxed text-gray-400">{item.prompt}</p>
                 </div>
               </motion.div>
@@ -331,7 +444,15 @@ export function Gallery() {
               <div className="border-t border-white/[0.06] p-4 sm:p-5">
                 <div className="mb-3 flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <p className="mb-1 text-[11px] tracking-wide text-red-400/80">{new Date(lightboxItem.createdAt).toLocaleString()}</p>
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] tracking-wide text-red-400/80">{new Date(lightboxItem.createdAt).toLocaleString()}</p>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${sourceMeta(lightboxItem.sourceType).badge}`}>
+                        {sourceMeta(lightboxItem.sourceType).label}
+                      </span>
+                      <span className="rounded-full border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-gray-400">
+                        {lightboxItem.size}
+                      </span>
+                    </div>
                     <p className="text-xs leading-relaxed text-gray-400">{lightboxItem.prompt}</p>
                   </div>
                   <span className="flex-shrink-0 text-[10px] tracking-wider text-gray-600">
