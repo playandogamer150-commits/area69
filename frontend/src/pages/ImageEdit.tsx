@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { Link } from 'react-router-dom'
 import {
   Clock,
   Download,
@@ -42,6 +43,12 @@ interface UploadedImage {
   id: string
   file: File
   preview: string
+}
+
+function accessLabel(isLicensed: boolean, trialCreditsRemaining: number) {
+  if (isLicensed) return 'Licenca completa'
+  if (trialCreditsRemaining > 0) return 'Trial de edicao'
+  return 'Aguardando licenca'
 }
 
 export function ImageEdit() {
@@ -312,6 +319,8 @@ export function ImageEdit() {
 
   const pct = (value: number) => ((value - MIN_SIZE) / (MAX_SIZE - MIN_SIZE)) * 100
   const canExecute = images.length > 0 && prompt.trim()
+  const favoriteHistoryCount = history.filter((item) => item.favorite).length
+  const promptLength = prompt.trim().length
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -324,11 +333,79 @@ export function ImageEdit() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Editar Imagem</h1>
       </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.05 }}
+        className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.16),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      >
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1.15fr_0.95fr]">
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
+                WaveSpeed Edit
+              </span>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
+                {accessLabel(isLicensed, trialCreditsRemaining)}
+              </span>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-[2rem]">
+              Edite rapido, compare versoes e salve o que realmente ficou bom
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">
+              Esse fluxo funciona melhor quando voce sobe imagens limpas, escreve mudancas objetivas e usa a historico como biblioteca de variacoes aproveitaveis.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+              >
+                Enviar imagens
+              </button>
+              <Link
+                to="/profile"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-gray-100 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              >
+                Ver acesso
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {[
+              {
+                label: 'Creditos',
+                value: isLicensed ? 'Ilimitado' : String(trialCreditsRemaining),
+                helper: isLicensed ? 'Seu plano completo libera o editor sem limite de trial.' : 'Edicoes gratis restantes nesta conta.',
+              },
+              {
+                label: 'Historico',
+                value: history.length,
+                helper: 'Resultados sincronizados para revisao e reuso.',
+              },
+              {
+                label: 'Favoritas',
+                value: favoriteHistoryCount,
+                helper: 'Edicoes marcadas como mais fortes para reaproveitar.',
+              },
+            ].map((item) => (
+              <div key={item.label} className="rounded-2xl border border-white/[0.08] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">{item.label}</p>
+                <p className="mt-2 text-2xl font-bold text-white">{item.value}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">{item.helper}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+
       {!isLicensed && trialCreditsRemaining > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
+          transition={{ duration: 0.4, delay: 0.08 }}
           className="mb-6 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] p-4 text-sm text-gray-200 shadow-[0_2px_12px_rgba(16,185,129,0.08)]"
         >
           Trial ativo: voce ainda tem {trialCreditsRemaining} edicao{trialCreditsRemaining === 1 ? '' : 'es'} gratis nesta conta.
@@ -343,6 +420,13 @@ export function ImageEdit() {
           className="min-w-0 flex-1 space-y-6 lg:max-w-[680px]"
         >
           <div className="rounded-xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5 shadow-[0_4px_25px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-7">
+            <div className="mb-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-gray-300">
+              <p className="font-semibold text-white">Como tirar o melhor do editor</p>
+              <p className="mt-2 leading-6 text-gray-400">
+                Suba imagens nítidas, peça mudancas objetivas e use uma instrucao por vez quando quiser comparar variacoes com mais controle.
+              </p>
+            </div>
+
             <div className="mb-6">
               <label className="mb-3 block text-sm font-semibold tracking-wide text-white">Images</label>
 
@@ -436,7 +520,10 @@ export function ImageEdit() {
             <div className="mb-6 h-px bg-white/[0.06]" />
 
             <div className="mb-6">
-              <label className="mb-2 block text-sm font-semibold tracking-wide text-white">Prompt</label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold tracking-wide text-white">Prompt</label>
+                <span className="text-[11px] tracking-wide text-gray-500">{promptLength} caracteres</span>
+              </div>
               <textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
@@ -444,6 +531,9 @@ export function ImageEdit() {
                 rows={4}
                 className="min-h-[100px] w-full resize-y rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-gray-600 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_1px_0_rgba(255,255,255,0.02)] focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_0_20px_rgba(220,38,38,0.06)]"
               />
+              <p className="mt-2 text-[11px] leading-5 text-gray-500">
+                Exemplo forte: troque o fundo para estudio escuro, melhore a luz no rosto e deixe a pele mais natural, sem mudar a identidade da pessoa.
+              </p>
             </div>
 
             <div className="mb-6 h-px bg-white/[0.06]" />
@@ -606,7 +696,10 @@ export function ImageEdit() {
                 Sincronizando historico...
               </div>
             ) : history.length === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-600">Nenhum historico de edicao ainda.</p>
+              <div className="py-8 text-center">
+                <p className="text-sm text-gray-500">Nenhum historico de edicao ainda.</p>
+                <p className="mt-2 text-xs leading-6 text-gray-600">Quando voce concluir uma edicao, ela aparece aqui pronta para reabrir, favoritar ou baixar.</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <AnimatePresence>
@@ -621,6 +714,17 @@ export function ImageEdit() {
                       <p className="mb-3 text-[11px] text-gray-600">
                         {new Date(item.createdAt).toLocaleString()} - {item.size}
                       </p>
+
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                          Edicao
+                        </span>
+                        {item.favorite && (
+                          <span className="rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-yellow-300">
+                            Favorita
+                          </span>
+                        )}
+                      </div>
 
                       <div className="mb-4 flex gap-4">
                         <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
@@ -731,12 +835,26 @@ export function ImageEdit() {
                   <p className="max-w-[240px] text-center text-sm leading-relaxed text-gray-500">
                     Nenhuma edicao executada ainda.
                   </p>
+                  <p className="max-w-[280px] text-center text-xs leading-6 text-gray-600">
+                    O resultado final aparece aqui assim que a edicao concluir. Depois voce pode baixar, favoritar ou reabrir a variacao.
+                  </p>
                 </div>
               )}
             </div>
 
             {resultImage && !isProcessing && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3 border-t border-white/[0.06] px-5 py-3.5">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border-t border-white/[0.06] px-5 py-3.5">
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Formato</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{width}*{height}</p>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Seed</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{seed || '-1'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
                 <a
                   href={resultImage}
                   download
@@ -756,6 +874,7 @@ export function ImageEdit() {
                   <Star className="h-3 w-3" />
                   Favoritar
                 </button>
+                </div>
               </motion.div>
             )}
           </div>
