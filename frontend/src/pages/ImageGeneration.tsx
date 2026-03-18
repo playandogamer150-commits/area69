@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
+import { Link } from 'react-router-dom'
 import {
+  ArrowRight,
   CheckCircle2,
   ChevronDown,
   Download,
@@ -109,6 +111,18 @@ function normalizeGenerationUrls(response: { imageUrls?: string[]; imageUrl?: st
   return []
 }
 
+function promptGuideText(hasIdentity: boolean, hasReferences: boolean) {
+  if (!hasIdentity) {
+    return 'Escolha primeiro uma identidade pronta. Depois descreva enquadramento, roupa, expressao, luz e ambiente.'
+  }
+
+  if (hasReferences) {
+    return 'Sua cena esta usando referencias manuais. Aproveite para detalhar pose, clima, composicao e acabamento final.'
+  }
+
+  return 'Descreva a cena completa: enquadramento, roupa, local, luz, expressao e qualidade visual desejada.'
+}
+
 export function ImageGeneration() {
   const [prompt, setPrompt] = useState('')
   const [selectedReferenceId, setSelectedReferenceId] = useState('')
@@ -165,6 +179,7 @@ export function ImageGeneration() {
   )
 
   const readyLoras = useMemo(() => loras.filter((item) => item.status === 'ready'), [loras])
+  const trainingLoras = useMemo(() => loras.filter((item) => item.status === 'training'), [loras])
   const pollStatus = async (taskId: string) => {
     try {
       const response = await generateService.getGenerationStatus(taskId)
@@ -367,6 +382,7 @@ export function ImageGeneration() {
   }
 
   const canGenerate = Boolean(prompt.trim() && selectedIdentity?.status === 'ready' && selectedIdentity.referenceId && !isUploadingReferences)
+  const promptLength = prompt.trim().length
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -379,6 +395,88 @@ export function ImageGeneration() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Gerar Imagem</h1>
       </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.05 }}
+        className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.18),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      >
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1.25fr_0.95fr]">
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
+                Soul Character
+              </span>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
+                {readyLoras.length} identidade{readyLoras.length === 1 ? '' : 's'} pronta{readyLoras.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-[2rem]">
+              {selectedIdentity ? `Cena pronta para ${selectedIdentity.modelName}` : 'Monte a cena antes de disparar a geracao'}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">
+              {selectedIdentity
+                ? 'A identidade ja esta conectada. Agora o ganho vem de prompt claro, proporcao correta e referencias visuais bem escolhidas.'
+                : 'Selecione uma Soul ID pronta e descreva a cena completa. O painel da direita vai mostrar o resultado final e o contexto ativo da sessao.'}
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              {readyLoras.length === 0 ? (
+                <Link
+                  to="/identity"
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+                >
+                  Criar identidade
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('generation-prompt')?.focus()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+                >
+                  Escrever prompt
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+              <Link
+                to="/gallery"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-gray-100 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              >
+                Ver galeria
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {[
+              {
+                title: '1. Escolha a identidade',
+                description:
+                  readyLoras.length > 0
+                    ? 'Use uma Soul ID pronta para manter consistencia facial, estilo e personagem.'
+                    : trainingLoras.length > 0
+                      ? 'Sua identidade ainda esta em treinamento. Assim que ficar pronta ela aparece aqui.'
+                      : 'Crie sua primeira identidade antes de abrir o fluxo completo de geracao.',
+              },
+              {
+                title: '2. Direcione a cena',
+                description: 'Prompt forte descreve enquadramento, look, ambiente, luz, humor e acabamento da imagem.',
+              },
+              {
+                title: '3. Salve o que vale',
+                description: 'Quando sair um resultado bom, envie para a galeria e mantenha um portfolio interno do produto.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="rounded-2xl border border-white/[0.08] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <p className="text-sm font-semibold text-white">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+
       <div className="flex flex-col gap-6 lg:flex-row">
         <motion.div
           initial={{ opacity: 0, y: 15 }}
@@ -387,15 +485,37 @@ export function ImageGeneration() {
           className="min-w-0 flex-1 lg:max-w-[620px]"
         >
           <div className="rounded-xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5 shadow-[0_4px_25px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-7">
+            {readyLoras.length === 0 && (
+              <div className="mb-5 rounded-2xl border border-amber-500/15 bg-amber-500/[0.05] p-4 text-sm text-gray-200">
+                {trainingLoras.length > 0 ? (
+                  <>Voce ja tem identidade em treinamento. Assim que ela ficar pronta, este fluxo libera a geracao automaticamente.</>
+                ) : (
+                  <>
+                    Nenhuma identidade pronta ainda. Crie uma Soul ID para abrir a geracao com consistencia de personagem.
+                    <Link to="/identity" className="ml-2 font-semibold text-amber-300 underline underline-offset-4">
+                      Ir para Criar Identidade
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="mb-5">
-              <label className="mb-2 block text-sm font-semibold tracking-wide text-white">Prompt</label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label htmlFor="generation-prompt" className="block text-sm font-semibold tracking-wide text-white">
+                  Prompt
+                </label>
+                <span className="text-[11px] tracking-wide text-gray-500">{promptLength} caracteres</span>
+              </div>
               <textarea
+                id="generation-prompt"
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder="Descreva exatamente a cena que voce quer gerar..."
                 rows={4}
                 className="min-h-[110px] w-full resize-y rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-gray-600 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_1px_0_rgba(255,255,255,0.02)] focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_0_20px_rgba(220,38,38,0.06)]"
               />
+              <p className="mt-2 text-[11px] leading-5 text-gray-500">{promptGuideText(Boolean(selectedIdentity), referenceImages.length > 0)}</p>
             </div>
 
             <div className="mb-5 h-px bg-white/[0.06]" />
@@ -611,29 +731,55 @@ export function ImageGeneration() {
                       ? 'Monte seu prompt, escolha o formato e clique em gerar. O resultado aparecera aqui.'
                       : 'Selecione uma identidade pronta para liberar a geracao com Soul Character.'}
                   </p>
+                  {readyLoras.length === 0 && (
+                    <Link
+                      to="/identity"
+                      className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-xs font-semibold tracking-wide text-gray-200 transition hover:border-white/[0.16] hover:bg-white/[0.06]"
+                    >
+                      Criar primeira identidade
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
 
             <div className="border-t border-white/[0.06] px-5 py-4">
               {selectedIdentity ? (
-                <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-                  <div className="h-14 w-14 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.04]">
-                    {selectedIdentity.thumbnailUrl ? (
-                      <img src={selectedIdentity.thumbnailUrl} alt={selectedIdentity.modelName} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <User className="h-5 w-5 text-gray-500" />
-                      </div>
-                    )}
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="h-14 w-14 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.04]">
+                      {selectedIdentity.thumbnailUrl ? (
+                        <img src={selectedIdentity.thumbnailUrl} alt={selectedIdentity.modelName} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <User className="h-5 w-5 text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">{selectedIdentity.modelName}</p>
+                      <p className="truncate text-xs text-gray-500">{selectedIdentity.referenceId ?? 'Character ID pendente'}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{selectedIdentity.modelName}</p>
-                    <p className="truncate text-xs text-gray-500">{selectedIdentity.referenceId ?? 'Character ID pendente'}</p>
+
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {[
+                      { label: 'Formato', value: aspectRatio },
+                      { label: 'Resolucao', value: resolution },
+                      { label: 'Saidas', value: String(resultImages) },
+                      { label: 'Referencias', value: String(referenceImages.length) },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500">{item.label}</p>
+                        <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">Escolha uma identidade pronta para continuar.</p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-gray-400">
+                  Escolha uma identidade pronta para continuar. Quando ela estiver selecionada, este resumo mostra a configuracao ativa da sessao.
+                </div>
               )}
 
               {generatedImages.length > 1 && (
