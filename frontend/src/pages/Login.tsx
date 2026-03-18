@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, User, Zap } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Image, Lock, Mail, ShieldCheck, User, Zap } from 'lucide-react'
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
 import { useToast } from '@/hooks/useToast'
 import { authService } from '@/services/auth.service'
@@ -153,8 +153,58 @@ export function Login() {
           initial={{ opacity: 0, y: 20, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6 }}
-          className="w-full max-w-md"
+          className="grid w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]"
         >
+          <div className="hidden lg:block">
+            <div className="max-w-xl">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
+                  AREA 69
+                </span>
+                <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
+                  Private AI Visual Studio
+                </span>
+              </div>
+
+              <h1 className="max-w-lg text-4xl font-bold tracking-tight text-white xl:text-5xl">
+                Entre para criar identidades, gerar cenas e editar imagens com fluxo profissional.
+              </h1>
+              <p className="mt-4 max-w-lg text-base leading-8 text-gray-300">
+                O login social te coloca no produto mais rapido. O cadastro por email continua disponivel para quem prefere um acesso tradicional.
+              </p>
+
+              <div className="mt-8 grid gap-3">
+                {[
+                  {
+                    icon: ShieldCheck,
+                    title: 'Acesso seguro',
+                    description: 'Login por Google, Discord ou email com protecao anti-abuso e sessao persistente.',
+                  },
+                  {
+                    icon: Image,
+                    title: 'Pipeline visual completo',
+                    description: 'Soul ID, geracao, edicao e galeria sincronizada em um unico painel.',
+                  },
+                  {
+                    icon: Zap,
+                    title: 'Entrada rapida no produto',
+                    description: 'Crie a conta, entre e continue do ponto em que voce parou em qualquer dispositivo.',
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 shadow-[0_10px_35px_rgba(0,0,0,0.28)]">
+                    <div className="mb-2 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-black/20">
+                        <item.icon className="h-4 w-4 text-red-300" />
+                      </div>
+                      <p className="text-sm font-semibold text-white">{item.title}</p>
+                    </div>
+                    <p className="text-sm leading-6 text-gray-400">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="relative overflow-hidden rounded-[1.75rem] border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-white/[0.01] p-6 shadow-[0_8px_50px_rgba(0,0,0,0.7),0_0_80px_rgba(220,38,38,0.05),inset_0_1px_0_rgba(255,255,255,0.06)] sm:rounded-[2rem] sm:p-10">
             <div className="absolute left-1/2 top-0 h-[2px] w-[300px] -translate-x-1/2 bg-gradient-to-r from-transparent via-red-600/40 to-transparent" />
             <div className="absolute left-1/2 top-0 h-20 w-[200px] -translate-x-1/2 rounded-full bg-red-600/[0.06] blur-[40px]" />
@@ -171,6 +221,16 @@ export function Login() {
                 </motion.div>
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">AREA 69</h1>
                 <p className="mt-1.5 text-sm tracking-[0.24em] text-gray-500">PRIVATE AI VISUAL STUDIO</p>
+              </div>
+
+              <div className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-red-400" />
+                  <p className="text-sm font-semibold text-white">Entrada segura e rapida</p>
+                </div>
+                <p className="text-xs leading-6 text-gray-400">
+                  Use Google ou Discord para entrar em segundos, ou siga com email e senha se preferir um fluxo tradicional.
+                </p>
               </div>
 
               <div className="relative mb-8 flex rounded-xl border border-white/[0.06] bg-white/[0.04] p-1 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]">
@@ -332,8 +392,12 @@ export function Login() {
                   <div className="w-full border-t border-white/[0.06]" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="bg-transparent px-4 text-xs uppercase tracking-wider text-gray-600">ou continue com</span>
+                  <span className="bg-transparent px-4 text-xs uppercase tracking-wider text-gray-600">entrar com social</span>
                 </div>
+              </div>
+
+              <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-center text-xs leading-6 text-gray-400">
+                Google e Discord colocam voce no produto mais rapido e tornam a continuacao da sessao mais fluida.
               </div>
 
               <div className="grid grid-cols-2 gap-3">
