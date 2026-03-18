@@ -4,8 +4,8 @@ import { Layers, Video, Film, Users, GraduationCap, Boxes } from "lucide-react";
 const roadmapItems = [
   {
     icon: Layers,
-    title: "LoRA Studio",
-    description: "Treinamento personalizado de modelos IA",
+    title: "Modelos Personalizados",
+    description: "Treinamento personalizado para identidades visuais",
   },
   {
     icon: Video,

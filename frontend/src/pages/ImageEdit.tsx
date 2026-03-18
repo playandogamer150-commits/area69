@@ -343,7 +343,7 @@ export function ImageEdit() {
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
-                WaveSpeed Edit
+                Editor de Imagem
               </span>
               <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
                 {accessLabel(isLicensed, trialCreditsRemaining)}

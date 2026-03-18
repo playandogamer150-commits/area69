@@ -183,7 +183,7 @@ export function Login() {
                   {
                     icon: Image,
                     title: 'Pipeline visual completo',
-                    description: 'Soul ID, geracao, edicao e galeria sincronizada em um unico painel.',
+                    description: 'Modelos, geracao, edicao e galeria sincronizada em um unico painel.',
                   },
                   {
                     icon: Zap,

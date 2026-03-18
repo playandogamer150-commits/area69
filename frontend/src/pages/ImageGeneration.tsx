@@ -192,7 +192,7 @@ export function ImageGeneration() {
         setSavedToGallery(false)
         setIsGenerating(false)
         if (pollingRef.current) clearInterval(pollingRef.current)
-        toast({ title: 'Sucesso', description: 'Imagem gerada com sucesso no Soul Character.' })
+        toast({ title: 'Sucesso', description: 'Imagem gerada com sucesso.' })
       } else if (response.status === 'failed' || response.status === 'canceled' || response.status === 'nsfw') {
         setIsGenerating(false)
         if (pollingRef.current) clearInterval(pollingRef.current)
@@ -298,13 +298,13 @@ export function ImageGeneration() {
         setLatestGenerationTaskId(response.taskId)
         setSavedToGallery(false)
         setIsGenerating(false)
-        toast({ title: 'Sucesso', description: 'Imagem gerada com sucesso no Soul Character.' })
+        toast({ title: 'Sucesso', description: 'Imagem gerada com sucesso.' })
       } else if (response.taskId) {
         if (pollingRef.current) clearInterval(pollingRef.current)
         pollingRef.current = setInterval(() => pollStatus(response.taskId), 3000)
         toast({
           title: 'Processando',
-          description: 'A geracao foi enviada. Estamos acompanhando o Soul Character em tempo real.',
+          description: 'A geracao foi enviada. Estamos acompanhando o processamento em tempo real.',
         })
       } else {
         setIsGenerating(false)
@@ -405,7 +405,7 @@ export function ImageGeneration() {
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
-                Soul Character
+                Gerador de Imagens
               </span>
               <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
                 {readyLoras.length} identidade{readyLoras.length === 1 ? '' : 's'} pronta{readyLoras.length === 1 ? '' : 's'}
@@ -417,7 +417,7 @@ export function ImageGeneration() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">
               {selectedIdentity
                 ? 'A identidade ja esta conectada. Agora o ganho vem de prompt claro, proporcao correta e referencias visuais bem escolhidas.'
-                : 'Selecione uma Soul ID pronta e descreva a cena completa. O painel da direita vai mostrar o resultado final e o contexto ativo da sessao.'}
+                : 'Selecione um modelo pronto e descreva a cena completa. O painel da direita vai mostrar o resultado final e o contexto ativo da sessao.'}
             </p>
 
             <div className="mt-5 flex flex-wrap gap-3">
@@ -454,7 +454,7 @@ export function ImageGeneration() {
                 title: '1. Escolha a identidade',
                 description:
                   readyLoras.length > 0
-                    ? 'Use uma Soul ID pronta para manter consistencia facial, estilo e personagem.'
+                    ? 'Use um modelo pronto para manter consistencia facial, estilo e personagem.'
                     : trainingLoras.length > 0
                       ? 'Sua identidade ainda esta em treinamento. Assim que ficar pronta ela aparece aqui.'
                       : 'Crie sua primeira identidade antes de abrir o fluxo completo de geracao.',
@@ -491,7 +491,7 @@ export function ImageGeneration() {
                   <>Voce ja tem identidade em treinamento. Assim que ela ficar pronta, este fluxo libera a geracao automaticamente.</>
                 ) : (
                   <>
-                    Nenhuma identidade pronta ainda. Crie uma Soul ID para abrir a geracao com consistencia de personagem.
+                    Nenhuma identidade pronta ainda. Crie um modelo para abrir a geracao com consistencia de personagem.
                     <Link to="/identity" className="ml-2 font-semibold text-amber-300 underline underline-offset-4">
                       Ir para Criar Identidade
                     </Link>
@@ -522,7 +522,7 @@ export function ImageGeneration() {
 
             <div className="space-y-5">
               <Select
-                label="Modelo Soul Character"
+                label="Modelo"
                 value={selectedReferenceId}
                 onChange={setSelectedReferenceId}
                 options={
@@ -559,10 +559,10 @@ export function ImageGeneration() {
                         </span>
                       </div>
                       <p className="text-xs text-gray-500">
-                        Character ID: <span className="text-gray-300">{selectedIdentity.referenceId ?? 'Nao encontrado'}</span>
+                        Modelo ID: <span className="text-gray-300">{selectedIdentity.referenceId ?? 'Nao encontrado'}</span>
                       </p>
                       <p className="mt-1 text-xs text-gray-600">
-                        Soul Style: <span className="text-gray-300">Realistic</span> · Style Strength e Character Strength fixos no maximo.
+                        Estilo visual: <span className="text-gray-300">Realistic</span> · Intensidade visual e consistencia fixas no maximo.
                       </p>
                     </div>
                   </div>
@@ -573,7 +573,7 @@ export function ImageGeneration() {
               <OptionPills label="Resolucao" value={resolution} onChange={setResolution} options={RESOLUTIONS} />
 
               <div>
-                <label className="mb-2 block text-sm font-semibold tracking-wide text-white">Soul Style</label>
+                <label className="mb-2 block text-sm font-semibold tracking-wide text-white">Estilo visual</label>
                 <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/8 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -664,12 +664,12 @@ export function ImageGeneration() {
               {isGenerating ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Gerando no Soul Character...
+                  Gerando imagem...
                 </>
               ) : (
                 <>
                   <Wand2 className="h-4 w-4" />
-                  Gerar com Soul Character
+                  Gerar imagem
                 </>
               )}
             </motion.button>
@@ -706,9 +706,9 @@ export function ImageGeneration() {
                     <Wand2 className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-red-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">Soul Character em execucao</p>
+                    <p className="text-sm font-semibold text-white">Geracao em execucao</p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Estamos gerando sua imagem com identidade, estilo realista e consistencia maxima.
+                      Estamos gerando sua imagem com a identidade selecionada, estilo realista e consistencia maxima.
                     </p>
                   </div>
                 </div>
@@ -729,7 +729,7 @@ export function ImageGeneration() {
                   <p className="max-w-[320px] text-center text-sm leading-relaxed text-gray-500">
                     {selectedIdentity?.status === 'ready'
                       ? 'Monte seu prompt, escolha o formato e clique em gerar. O resultado aparecera aqui.'
-                      : 'Selecione uma identidade pronta para liberar a geracao com Soul Character.'}
+                      : 'Selecione uma identidade pronta para liberar a geracao.'}
                   </p>
                   {readyLoras.length === 0 && (
                     <Link
@@ -758,7 +758,7 @@ export function ImageGeneration() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white">{selectedIdentity.modelName}</p>
-                      <p className="truncate text-xs text-gray-500">{selectedIdentity.referenceId ?? 'Character ID pendente'}</p>
+                      <p className="truncate text-xs text-gray-500">{selectedIdentity.referenceId ?? 'Modelo ID pendente'}</p>
                     </div>
                   </div>
 

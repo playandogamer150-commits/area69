@@ -49,7 +49,7 @@ function statusCopy(status: LoRAStatus['status']) {
   if (status === 'ready') {
     return {
       label: 'Pronto',
-      description: 'Sua identidade ja esta pronta para gerar imagens no Soul Character.',
+      description: 'Sua identidade ja esta pronta para gerar imagens no gerador.',
       classes: 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
     }
   }
@@ -62,7 +62,7 @@ function statusCopy(status: LoRAStatus['status']) {
   }
   return {
     label: 'Treinando',
-    description: 'Seu Soul ID esta em treinamento. Voce pode continuar navegando enquanto a plataforma atualiza tudo automaticamente.',
+    description: 'Seu modelo esta em treinamento. Voce pode continuar navegando enquanto a plataforma atualiza tudo automaticamente.',
     classes: 'border border-amber-500/20 bg-amber-500/10 text-amber-300',
   }
 }
@@ -181,7 +181,7 @@ export function IdentityCreation() {
           notifiedReadyRef.current = updated.loraId
           toast({
             title: 'Identidade pronta',
-            description: `${updated.modelName} ja pode ser usada na geracao com Soul Character.`,
+            description: `${updated.modelName} ja pode ser usada na geracao de imagens.`,
           })
         }
 
@@ -271,7 +271,7 @@ export function IdentityCreation() {
       })
 
       if (!createResponse.ok || !createResponse.loraId) {
-        throw new Error(createResponse.message || 'Falha ao iniciar o Soul ID')
+        throw new Error(createResponse.message || 'Falha ao iniciar o modelo')
       }
 
       const newSession: TrainingSession = {
@@ -295,8 +295,8 @@ export function IdentityCreation() {
         title: 'Treinamento iniciado',
         description:
           ignoredPhotosCount > 0
-            ? `Seu Soul ID esta sendo preparado com as ${TRAINING_PHOTO_LIMIT} primeiras fotos. A dashboard e esta tela vao atualizar automaticamente.`
-            : 'Seu Soul ID esta sendo preparado. A dashboard e esta tela vao atualizar automaticamente.',
+            ? `Seu modelo esta sendo preparado com as ${TRAINING_PHOTO_LIMIT} primeiras fotos. A dashboard e esta tela vao atualizar automaticamente.`
+            : 'Seu modelo esta sendo preparado. A dashboard e esta tela vao atualizar automaticamente.',
       })
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } }; message?: string }
@@ -340,7 +340,7 @@ export function IdentityCreation() {
           <div>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
-                Soul ID setup
+                Configuracao do modelo
               </span>
               <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
                 {promptReadyCount}/3 etapas prontas
@@ -350,7 +350,7 @@ export function IdentityCreation() {
               Treine uma identidade com fotos certas e o resto do produto fica muito mais forte
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">
-              O segredo aqui nao e so quantidade. O que mais pesa e variedade de angulo, nitidez, iluminacao coerente e um nome/trigger que voce consiga usar com clareza depois no fluxo de geracao.
+              O segredo aqui nao e so quantidade. O que mais pesa e variedade de angulo, nitidez, iluminacao coerente e um nome/palavra-chave que voce consiga usar com clareza depois no fluxo de geracao.
             </p>
 
             <div className="mt-5 flex flex-wrap gap-3">
@@ -381,7 +381,7 @@ export function IdentityCreation() {
                 description: 'Escolha um nome facil de reconhecer internamente, sem ficar generico demais.',
               },
               {
-                title: '3. Trigger unica',
+                title: '3. Palavra-chave unica',
                 description: 'Defina uma palavra rara, curta e previsivel para ativar a identidade depois no produto.',
               },
             ].map((item) => (
@@ -482,7 +482,7 @@ export function IdentityCreation() {
                         to="/generate"
                         className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.32)] transition hover:-translate-y-0.5 hover:bg-red-700"
                       >
-                        Usar no Soul Character
+                        Usar na geracao
                       </Link>
                     ) : (
                       <span className="inline-flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
@@ -597,7 +597,7 @@ export function IdentityCreation() {
                     <span className="font-semibold text-white">{trainingPhotos.length}</span>
                   </div>
                   <div>
-                    <span className="block text-gray-500">Limite do Soul ID</span>
+                    <span className="block text-gray-500">Limite do modelo</span>
                     <span className="font-semibold text-white">{TRAINING_PHOTO_LIMIT}</span>
                   </div>
                   <div>
@@ -610,7 +610,7 @@ export function IdentityCreation() {
 
                 {ignoredPhotosCount > 0 && (
                   <div className="mb-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100">
-                    Voce carregou mais de {TRAINING_PHOTO_LIMIT} fotos. Para manter o Soul ID estavel, vamos usar apenas as {TRAINING_PHOTO_LIMIT} primeiras no treino.
+                    Voce carregou mais de {TRAINING_PHOTO_LIMIT} fotos. Para manter o modelo estavel, vamos usar apenas as {TRAINING_PHOTO_LIMIT} primeiras no treino.
                   </div>
                 )}
 
@@ -653,13 +653,13 @@ export function IdentityCreation() {
             placeholder="ex: minha-identidade-01"
             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-gray-600 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_1px_0_rgba(255,255,255,0.02)] focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_0_20px_rgba(220,38,38,0.06)]"
           />
-          <p className="ml-0.5 mt-1.5 text-[11px] text-gray-600">Esse nome aparece na sua organizacao interna e na selecao do Soul Character.</p>
+          <p className="ml-0.5 mt-1.5 text-[11px] text-gray-600">Esse nome aparece na sua organizacao interna e na selecao do gerador.</p>
         </div>
 
         <div className="mb-6">
           <label className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-wide text-white">
             <Key className="h-3.5 w-3.5 text-gray-500" />
-            Trigger Word
+            Palavra-chave
           </label>
           <input
             type="text"
@@ -699,7 +699,7 @@ export function IdentityCreation() {
             </div>
           </div>
           <p className="ml-[60px] mt-2 text-[11px] text-gray-600">
-            Esta flag prepara o modelo para conteudo explicito quando voce usar o Soul Character.
+            Esta flag prepara o modelo para conteudo explicito quando voce usar a geracao de imagens.
           </p>
         </div>
 
@@ -717,7 +717,7 @@ export function IdentityCreation() {
           {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Criando Soul ID...
+              Criando modelo...
             </>
           ) : (
             <>
@@ -744,7 +744,7 @@ export function IdentityCreation() {
             {!triggerWord.trim() && (
               <p className="flex items-center gap-1.5 text-[11px] text-gray-600">
                 <AlertCircle className="h-3 w-3" />
-                Defina uma trigger word
+                Defina uma palavra-chave
               </p>
             )}
           </div>
@@ -752,7 +752,7 @@ export function IdentityCreation() {
 
         {isValid && !isSubmitting && (
           <div className="mt-4 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] px-4 py-3 text-[11px] leading-6 text-emerald-100">
-            Checklist pronto. As fotos, o nome do modelo e a trigger word ja estao em estado valido para iniciar o Soul ID.
+            Checklist pronto. As fotos, o nome do modelo e a palavra-chave ja estao em estado valido para iniciar o treinamento.
           </div>
         )}
       </motion.form>

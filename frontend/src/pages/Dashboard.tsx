@@ -152,7 +152,7 @@ export function Dashboard() {
   }, [hasTrainingIdentities, userId])
 
   const statCards = [
-    { label: 'Identidades', value: stats.identities, sub: 'Soul IDs prontas', icon: User },
+    { label: 'Identidades', value: stats.identities, sub: 'Modelos prontos', icon: User },
     { label: 'Imagens', value: stats.imagesToday, sub: 'Total de hoje', icon: Image },
     { label: 'Geracoes', value: stats.generatedImagesToday, sub: 'Normais hoje', icon: Layers },
     { label: 'Editaveis', value: stats.editedImagesToday, sub: 'Edicoes de hoje', icon: Wand2 },
@@ -181,14 +181,14 @@ export function Dashboard() {
       return {
         ...latestIdentityActivity,
         title: 'Sua identidade esta sendo preparada',
-        description: 'Voce pode continuar navegando. O painel atualiza sozinho quando o Soul ID concluir.',
+        description: 'Voce pode continuar navegando. O painel atualiza sozinho quando o modelo concluir.',
       }
     }
     if (latestIdentityActivity.status.toLowerCase() === 'ready' && isRecent(latestIdentityActivity.createdAt)) {
       return {
         ...latestIdentityActivity,
         title: 'Sua identidade ficou pronta',
-        description: 'Agora ela ja pode ser usada no Soul Character para gerar imagens.',
+        description: 'Agora ela ja pode ser usada no gerador para criar imagens.',
       }
     }
     return null
@@ -242,14 +242,14 @@ export function Dashboard() {
         title: licensed ? 'Licenca ativa' : 'Desbloqueie o plano completo',
         description: licensed
           ? 'Seu acesso completo esta liberado para identidade, geracao e galeria.'
-          : 'Ative a chave recebida no checkout para liberar Soul Character, geracao e galeria sincronizada.',
+          : 'Ative a chave recebida no checkout para liberar geracao, identidades e galeria sincronizada.',
         status: licensed ? 'done' : !hasEditedImage && canEditImage ? 'locked' : 'current',
         ctaLabel: !licensed && (hasEditedImage || !canEditImage) ? 'Ativar licenca' : undefined,
         ctaPath: !licensed && (hasEditedImage || !canEditImage) ? '/profile' : undefined,
       },
       {
         id: 'identity',
-        title: stats.identities > 0 ? 'Soul ID criado' : 'Crie sua primeira identidade',
+        title: stats.identities > 0 ? 'Modelo criado' : 'Crie sua primeira identidade',
         description:
           stats.identities > 0
             ? 'Seu treinamento ja entrou no fluxo. Agora vale gerar uma primeira cena consistente.'
@@ -510,7 +510,7 @@ export function Dashboard() {
               </div>
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.25em] text-red-300">Soul ID</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.25em] text-red-300">Modelo</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusBadgeClasses(identityHighlight.status)}`}>
                     {identityHighlight.status.toLowerCase() === 'training' ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                     {statusLabel(identityHighlight.status)}
