@@ -9,13 +9,13 @@ import {
   Layers,
   Loader2,
   RefreshCcw,
-  Shield,
   Sparkles,
   User,
   UserPlus,
   Video,
   Wand2,
 } from 'lucide-react'
+import { GuidedDashboardTour } from '@/components/dashboard/GuidedDashboardTour'
 import { userService } from '@/services/user.service'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import type { DashboardActivityItem, DashboardStatsResponse } from '@/types/api.types'
@@ -40,21 +40,14 @@ interface QuickAction {
   disabled?: boolean
 }
 
-interface OnboardingStep {
-  id: string
-  title: string
-  description: string
-  status: 'done' | 'current' | 'locked'
-  ctaLabel?: string
-  ctaPath?: string
-}
-
 const quickActions: QuickAction[] = [
   { label: 'Criar Nova Identidade', icon: UserPlus, path: '/identity', primary: true },
   { label: 'Gerar Imagem', icon: Image, path: '/generate', primary: false },
   { label: 'Editar Imagem', icon: Wand2, path: '/edit-image', primary: false },
   { label: 'Face Swap', icon: RefreshCcw, path: '/faceswap', primary: false, disabled: true },
 ]
+
+const DASHBOARD_TOUR_STORAGE_KEY = 'area69:dashboard-tour-complete-v1'
 
 function isRecent(createdAt?: string) {
   if (!createdAt) return false
@@ -91,35 +84,9 @@ function providerLabel(provider?: string | null) {
   return 'Email'
 }
 
-function stepClasses(status: OnboardingStep['status']) {
-  if (status === 'done') {
-    return {
-      wrapper: 'border-emerald-500/20 bg-emerald-500/[0.08]',
-      badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20',
-      icon: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
-      label: 'Concluido',
-    }
-  }
-
-  if (status === 'current') {
-    return {
-      wrapper: 'border-red-500/20 bg-red-500/[0.08]',
-      badge: 'bg-red-500/15 text-red-200 border border-red-500/20',
-      icon: <Sparkles className="h-4 w-4 text-red-400" />,
-      label: 'Agora',
-    }
-  }
-
-  return {
-    wrapper: 'border-white/[0.08] bg-white/[0.03]',
-    badge: 'bg-white/[0.04] text-gray-400 border border-white/[0.06]',
-    icon: <Clock className="h-4 w-4 text-gray-500" />,
-    label: 'Bloqueado',
-  }
-}
-
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStatsResponse>(emptyStats)
+  const [tourOpen, setTourOpen] = useState(false)
   const userId = useCurrentUserId()
   const currentUser = getCurrentUser()
   const licensed = hasActiveLicense()
@@ -150,6 +117,14 @@ export function Dashboard() {
       window.clearInterval(interval)
     }
   }, [hasTrainingIdentities, userId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.innerWidth < 1024) return
+    if (window.localStorage.getItem(DASHBOARD_TOUR_STORAGE_KEY) === 'done') return
+    const timer = window.setTimeout(() => setTourOpen(true), 450)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   const statCards = [
     { label: 'Identidades', value: stats.identities, sub: 'Modelos prontos', icon: User },
@@ -217,65 +192,100 @@ export function Dashboard() {
     return 'Atividade'
   }
 
-  const onboardingSteps = useMemo<OnboardingStep[]>(() => {
-    const steps: OnboardingStep[] = [
+  const nextAction = useMemo(() => {
+    if (canEditImage && !hasEditedImage) {
+      return {
+        title: 'Seu melhor primeiro passo e testar o editor',
+        description: `Voce ainda tem ${trialEditCredits} credito${trialEditCredits === 1 ? '' : 's'} para validar a qualidade do fluxo.`,
+        ctaLabel: 'Editar imagem',
+        ctaPath: '/edit-image',
+      }
+    }
+    if (!licensed) {
+      return {
+        title: 'Ative sua licenca para liberar a plataforma completa',
+        description: 'Depois da ativacao, voce desbloqueia identidade, geracao e galeria sincronizada.',
+        ctaLabel: 'Ativar licenca',
+        ctaPath: '/profile',
+      }
+    }
+    if (stats.identities === 0) {
+      return {
+        title: 'Crie sua primeira identidade',
+        description: 'Monte a base do personagem com fotos fortes para abrir o fluxo principal.',
+        ctaLabel: 'Criar identidade',
+        ctaPath: '/identity',
+      }
+    }
+    if (!hasGeneratedImage) {
+      return {
+        title: 'Gere sua primeira imagem',
+        description: 'Use sua identidade pronta para montar uma cena completa e salvar os melhores resultados.',
+        ctaLabel: 'Gerar imagem',
+        ctaPath: '/generate',
+      }
+    }
+    return {
+      title: 'Seu painel ja esta pronto para operar',
+      description: 'Agora o foco e repetir o que funciona, acompanhar a atividade e salvar os melhores resultados.',
+      ctaLabel: 'Ver galeria',
+      ctaPath: '/gallery',
+    }
+  }, [canEditImage, hasEditedImage, hasGeneratedImage, licensed, stats.identities, trialEditCredits])
+
+  const dashboardTourSteps = useMemo(
+    () => [
       {
-        id: 'account',
-        title: 'Conta pronta',
-        description: `Voce entrou com ${providerLabel(currentUser?.authProvider)} e ja pode acessar o painel.`,
-        status: 'done',
+        id: 'profile',
+        selector: '[data-tour="profile-access"]',
+        title: 'Conta, acesso e licenca',
+        description: licensed
+          ? 'Aqui voce acompanha sua conta e o status do acesso completo.'
+          : 'Comece por aqui quando quiser ativar a chave e liberar o resto da plataforma.',
+        ctaLabel: 'Abrir perfil',
+        ctaPath: '/profile',
       },
       {
         id: 'edit',
-        title: hasEditedImage ? 'Primeira edicao concluida' : 'Teste o editor',
-        description: hasEditedImage
-          ? 'Voce ja validou o fluxo de edicao. Agora o painel fica focado em destravar o resto da plataforma.'
-          : canEditImage
-            ? `Use ${trialEditCredits} credito${trialEditCredits === 1 ? '' : 's'} para sentir a qualidade do produto antes de ativar.`
-            : 'Seu trial nao esta mais disponivel nesta conta.',
-        status: hasEditedImage ? 'done' : canEditImage ? 'current' : 'locked',
-        ctaLabel: !hasEditedImage && canEditImage ? 'Editar imagem' : undefined,
-        ctaPath: !hasEditedImage && canEditImage ? '/edit-image' : undefined,
-      },
-      {
-        id: 'license',
-        title: licensed ? 'Licenca ativa' : 'Desbloqueie o plano completo',
-        description: licensed
-          ? 'Seu acesso completo esta liberado para identidade, geracao e galeria.'
-          : 'Ative a chave recebida no checkout para liberar geracao, identidades e galeria sincronizada.',
-        status: licensed ? 'done' : !hasEditedImage && canEditImage ? 'locked' : 'current',
-        ctaLabel: !licensed && (hasEditedImage || !canEditImage) ? 'Ativar licenca' : undefined,
-        ctaPath: !licensed && (hasEditedImage || !canEditImage) ? '/profile' : undefined,
+        selector: '[data-tour="nav-edit-image"]',
+        title: 'Editar imagem',
+        description: canEditImage
+          ? 'Esse e o melhor ponto de entrada para sentir a qualidade do produto antes de ativar.'
+          : 'O editor fica disponivel enquanto houver trial ou licenca ativa.',
+        ctaLabel: canEditImage ? 'Abrir editor' : undefined,
+        ctaPath: canEditImage ? '/edit-image' : undefined,
       },
       {
         id: 'identity',
-        title: stats.identities > 0 ? 'Modelo criado' : 'Crie sua primeira identidade',
-        description:
-          stats.identities > 0
-            ? 'Seu treinamento ja entrou no fluxo. Agora vale gerar uma primeira cena consistente.'
-            : 'Monte a base do personagem com fotos fortes para liberar o melhor resultado nas geracoes.',
-        status: stats.identities > 0 ? 'done' : licensed ? 'current' : 'locked',
-        ctaLabel: stats.identities === 0 && licensed ? 'Criar identidade' : undefined,
-        ctaPath: stats.identities === 0 && licensed ? '/identity' : undefined,
+        selector: '[data-tour="nav-identity"]',
+        title: 'Criar identidade',
+        description: licensed
+          ? 'Depois da licenca ativa, aqui voce prepara seu modelo para gerar resultados consistentes.'
+          : 'Esse modulo fica liberado quando a licenca estiver ativa.',
       },
       {
-        id: 'generation',
-        title: hasGeneratedImage ? 'Primeira imagem entregue' : 'Gere sua primeira imagem',
-        description: hasGeneratedImage
-          ? 'Seu fluxo principal ja esta ativo. O proximo passo e curar resultados e salvar o que vale na galeria.'
-          : 'Use sua identidade pronta para montar uma cena completa e salvar os melhores resultados.',
-        status: hasGeneratedImage ? 'done' : licensed && stats.identities > 0 ? 'current' : 'locked',
-        ctaLabel: !hasGeneratedImage && licensed && stats.identities > 0 ? 'Gerar imagem' : undefined,
-        ctaPath: !hasGeneratedImage && licensed && stats.identities > 0 ? '/generate' : undefined,
+        id: 'generate',
+        selector: '[data-tour="nav-generate"]',
+        title: 'Gerar imagem',
+        description: licensed
+          ? 'Com a identidade pronta, esse e o fluxo principal para montar cenas e resultados finais.'
+          : 'A geracao completa entra no jogo logo depois da ativacao da licenca.',
       },
-    ]
-
-    return steps
-  }, [canEditImage, currentUser?.authProvider, hasEditedImage, hasGeneratedImage, licensed, stats.identities, trialEditCredits])
-
-  const completedOnboardingSteps = onboardingSteps.filter((step) => step.status === 'done').length
-  const activeOnboardingStep = onboardingSteps.find((step) => step.status === 'current') || onboardingSteps[onboardingSteps.length - 1]
-  const onboardingProgress = Math.round((completedOnboardingSteps / onboardingSteps.length) * 100)
+      {
+        id: 'actions',
+        selector: '[data-tour="dashboard-actions"]',
+        title: 'Atalhos do painel',
+        description: 'Esses botoes aceleram o acesso aos fluxos principais sem precisar navegar manualmente.',
+      },
+      {
+        id: 'activity',
+        selector: '[data-tour="dashboard-activity"]',
+        title: 'Atividade recente',
+        description: 'Tudo o que voce cria, edita ou treina aparece aqui para acompanhamento rapido.',
+      },
+    ],
+    [canEditImage, licensed],
+  )
 
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 lg:p-8">
@@ -285,104 +295,70 @@ export function Dashboard() {
         transition={{ duration: 0.5 }}
         className="mb-8"
       >
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
-        <p className="mt-1 text-sm tracking-wide text-gray-500">Bem-vindo ao AREA 69</p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
+            <p className="mt-1 text-sm tracking-wide text-gray-500">Bem-vindo ao AREA 69</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTourOpen(true)}
+            className="inline-flex items-center gap-2 self-start rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-white/[0.14] hover:bg-white/[0.05] hover:text-white"
+          >
+            <Sparkles className="h-4 w-4 text-red-400" />
+            Iniciar tour
+          </button>
+        </div>
       </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.05 }}
-        className="mb-8 overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.2),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] shadow-[0_18px_60px_rgba(0,0,0,0.45)]"
+        className="mb-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]"
       >
-        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[1.4fr_0.9fr] lg:items-center">
-          <div>
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
-                Proximo passo
-              </span>
-              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
-                Login via {providerLabel(currentUser?.authProvider)}
-              </span>
-            </div>
-            <h2 className="max-w-2xl text-2xl font-bold tracking-tight text-white sm:text-[2rem]">
-              {activeOnboardingStep.title}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">{activeOnboardingStep.description}</p>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              {activeOnboardingStep.ctaLabel && activeOnboardingStep.ctaPath ? (
-                <Link
-                  to={activeOnboardingStep.ctaPath}
-                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {activeOnboardingStep.ctaLabel}
-                </Link>
-              ) : (
-                <Link
-                  to="/gallery"
-                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Ver galeria
-                </Link>
-              )}
-              <Link
-                to="/profile"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-gray-100 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
-              >
-                <Shield className="h-4 w-4" />
-                Revisar conta
-              </Link>
-            </div>
+        <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.16),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.45)] sm:p-6">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
+              Proximo passo
+            </span>
+            <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
+              Login via {providerLabel(currentUser?.authProvider)}
+            </span>
           </div>
+          <h2 className="max-w-2xl text-2xl font-bold tracking-tight text-white sm:text-[2rem]">{nextAction.title}</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">{nextAction.description}</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              to={nextAction.ctaPath}
+              className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+            >
+              <Sparkles className="h-4 w-4" />
+              {nextAction.ctaLabel}
+            </Link>
+          </div>
+        </div>
 
-          <div className="rounded-2xl border border-white/[0.08] bg-black/20 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">Onboarding</p>
-                <p className="mt-1 text-lg font-semibold text-white">{completedOnboardingSteps}/{onboardingSteps.length} etapas prontas</p>
-              </div>
-              <div className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-semibold text-gray-200">
-                {onboardingProgress}%
-              </div>
+        <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] sm:p-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">Resumo rapido</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5">
+              <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Conta</p>
+              <p className="text-sm font-semibold text-white">{providerLabel(currentUser?.authProvider)}</p>
             </div>
-
-            <div className="mb-5 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-red-500 via-red-400 to-orange-300"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.max(onboardingProgress, 8)}%` }}
-                transition={{ duration: 0.45, ease: 'easeOut' }}
-              />
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5">
+              <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Acesso</p>
+              <p className="text-sm font-semibold text-white">{licensed ? 'Licenca ativa' : canEditImage ? 'Trial de edicao' : 'Licenca pendente'}</p>
             </div>
-
-            <div className="space-y-3">
-              {onboardingSteps.map((step) => {
-                const tone = stepClasses(step.status)
-
-                return (
-                  <div key={step.id} className={`rounded-2xl border p-4 ${tone.wrapper}`}>
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        {tone.icon}
-                        <p className="text-sm font-semibold text-white">{step.title}</p>
-                      </div>
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${tone.badge}`}>
-                        {tone.label}
-                      </span>
-                    </div>
-                    <p className="text-sm leading-6 text-gray-300">{step.description}</p>
-                  </div>
-                )
-              })}
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5">
+              <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Tour</p>
+              <p className="text-sm font-semibold text-white">Guia em spotlight</p>
             </div>
           </div>
         </div>
       </motion.div>
 
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+      <div data-tour="dashboard-stats" className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
         {statCards.map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -408,6 +384,7 @@ export function Dashboard() {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.3 }}
+        data-tour="dashboard-actions"
         className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4"
       >
         {quickActions.map((action) => {
@@ -563,6 +540,7 @@ export function Dashboard() {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
+        data-tour="dashboard-activity"
       >
         <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-white/[0.01] shadow-[0_4px_25px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)]">
           <div className="flex items-center gap-2 border-b border-white/[0.06] px-5 py-4 sm:px-6">
@@ -631,21 +609,12 @@ export function Dashboard() {
               <p className="text-sm text-gray-400">Seu feed ainda esta vazio</p>
               <p className="mt-1 text-xs text-gray-600">Quando voce editar, criar identidade ou gerar imagens, tudo aparece aqui.</p>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                {activeOnboardingStep.ctaLabel && activeOnboardingStep.ctaPath ? (
-                  <Link
-                    to={activeOnboardingStep.ctaPath}
-                    className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.24)] transition hover:bg-red-700"
-                  >
-                    {activeOnboardingStep.ctaLabel}
-                  </Link>
-                ) : (
-                  <Link
-                    to="/generate"
-                    className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.24)] transition hover:bg-red-700"
-                  >
-                    Gerar imagem
-                  </Link>
-                )}
+                <Link
+                  to={nextAction.ctaPath}
+                  className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(220,38,38,0.24)] transition hover:bg-red-700"
+                >
+                  {nextAction.ctaLabel}
+                </Link>
                 <Link
                   to="/profile"
                   className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-gray-200 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
@@ -659,6 +628,17 @@ export function Dashboard() {
       </motion.div>
 
       <div className="h-8" />
+
+      <GuidedDashboardTour
+        open={tourOpen}
+        steps={dashboardTourSteps}
+        onClose={() => {
+          setTourOpen(false)
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem(DASHBOARD_TOUR_STORAGE_KEY, 'done')
+          }
+        }}
+      />
     </div>
   )
 }
