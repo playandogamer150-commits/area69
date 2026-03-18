@@ -32,7 +32,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
         >
           <div className={`h-1.5 w-1.5 rounded-full ${licensed ? 'animate-pulse bg-emerald-400' : 'bg-gray-500'}`} />
           <span className="text-[10px] font-semibold uppercase tracking-wider sm:text-xs">
-            {licensed ? 'Licença Ativa' : 'Licença Pendente'}
+            {licensed ? 'Licenca Ativa' : 'Licenca Pendente'}
           </span>
         </div>
 
@@ -41,10 +41,14 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
             onClick={() => navigate('/profile')}
             className="group flex items-center gap-2 text-gray-400 transition-all hover:text-white"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors group-hover:border-red-600/25">
-              <User className="h-3.5 w-3.5" />
+            <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors group-hover:border-red-600/25">
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user?.name || user?.email || 'Perfil'} className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-3.5 w-3.5" />
+              )}
             </div>
-            <span className="hidden text-xs font-medium tracking-wide sm:block">{user?.name || 'Usuário'}</span>
+            <span className="hidden text-xs font-medium tracking-wide sm:block">{user?.name || 'Usuario'}</span>
           </button>
 
           <button

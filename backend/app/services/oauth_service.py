@@ -27,6 +27,7 @@ class OAuthIdentity:
     subject: str
     email: str
     name: str | None
+    avatar_url: str | None
     email_verified: bool
 
 
@@ -112,6 +113,7 @@ def _parse_identity(provider: str, payload: dict[str, Any]) -> OAuthIdentity:
         subject = str(payload.get("sub") or "").strip()
         email = str(payload.get("email") or "").strip().lower()
         name = str(payload.get("name") or "").strip() or None
+        avatar_url = str(payload.get("picture") or "").strip() or None
         email_verified = bool(payload.get("email_verified"))
     else:
         subject = str(payload.get("id") or "").strip()
@@ -119,6 +121,8 @@ def _parse_identity(provider: str, payload: dict[str, Any]) -> OAuthIdentity:
         global_name = str(payload.get("global_name") or "").strip()
         username = str(payload.get("username") or "").strip()
         name = global_name or username or None
+        avatar_hash = str(payload.get("avatar") or "").strip()
+        avatar_url = f"https://cdn.discordapp.com/avatars/{subject}/{avatar_hash}.png?size=256" if subject and avatar_hash else None
         email_verified = bool(payload.get("verified"))
 
     if not subject or not email:
@@ -131,5 +135,6 @@ def _parse_identity(provider: str, payload: dict[str, Any]) -> OAuthIdentity:
         subject=subject,
         email=email,
         name=name,
+        avatar_url=avatar_url,
         email_verified=email_verified,
     )

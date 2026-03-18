@@ -163,6 +163,7 @@ def serialize_user(user: User) -> dict:
         "id": user.id,
         "email": user.email,
         "name": user.name,
+        "avatarUrl": user.avatar_url,
         "authProvider": user.auth_provider or "password",
         "isActive": user.is_active,
         "licenseStatus": user.license_status or "inactive",
@@ -258,6 +259,7 @@ def _upsert_oauth_user(db: Session, request: Request, identity: OAuthIdentity, d
     if existing_by_subject:
         existing_by_subject.email = identity.email
         existing_by_subject.name = identity.name or existing_by_subject.name
+        existing_by_subject.avatar_url = identity.avatar_url or existing_by_subject.avatar_url
         existing_by_subject.auth_provider = identity.provider
         existing_by_subject.last_ip_hash = client_ip_hash
         if device_fingerprint_hash:
@@ -275,6 +277,7 @@ def _upsert_oauth_user(db: Session, request: Request, identity: OAuthIdentity, d
             )
         setattr(existing_by_email, subject_field, identity.subject)
         existing_by_email.name = identity.name or existing_by_email.name
+        existing_by_email.avatar_url = identity.avatar_url or existing_by_email.avatar_url
         existing_by_email.last_ip_hash = client_ip_hash
         if device_fingerprint_hash:
             existing_by_email.device_fingerprint_hash = device_fingerprint_hash
@@ -294,6 +297,7 @@ def _upsert_oauth_user(db: Session, request: Request, identity: OAuthIdentity, d
         email=identity.email,
         hashed_password=get_password_hash(secrets.token_urlsafe(32)),
         name=identity.name,
+        avatar_url=identity.avatar_url,
         auth_provider=identity.provider,
         is_active=True,
         license_status="inactive",
