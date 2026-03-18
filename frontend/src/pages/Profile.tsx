@@ -234,7 +234,7 @@ export function Profile() {
             ) : trialBlockedReason ? (
               <>{getTrialBlockedMessage(trialBlockedReason)}</>
             ) : (
-              <>Seu trial gratis de edicao ja foi usado. Ative a chave recebida no checkout externo para liberar Criar Identidade, Gerar Imagem e Galeria.</>
+              <>Seu trial gratuito de edicao ja foi usado. Ative a chave recebida no checkout externo para liberar Criar Identidade, Gerar Imagem e Galeria.</>
             )}
           </div>
         )}

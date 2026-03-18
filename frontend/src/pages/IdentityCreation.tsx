@@ -48,20 +48,20 @@ function getStorageKey(userId: string) {
 function statusCopy(status: LoRAStatus['status']) {
   if (status === 'ready') {
     return {
-      label: 'Ready',
+      label: 'Pronto',
       description: 'Sua identidade ja esta pronta para gerar imagens no Soul Character.',
       classes: 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
     }
   }
   if (status === 'failed') {
     return {
-      label: 'Failed',
+      label: 'Falhou',
       description: 'A criacao falhou. Voce pode revisar as fotos e iniciar novamente.',
       classes: 'border border-red-500/20 bg-red-500/10 text-red-400',
     }
   }
   return {
-    label: 'Training',
+    label: 'Treinando',
     description: 'Seu Soul ID esta em treinamento. Voce pode continuar navegando enquanto a plataforma atualiza tudo automaticamente.',
     classes: 'border border-amber-500/20 bg-amber-500/10 text-amber-300',
   }
