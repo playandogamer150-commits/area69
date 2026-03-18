@@ -303,6 +303,7 @@ def test_google_oauth_callback_creates_social_user_with_trial(client, db_session
                 subject="google-subject-1",
                 email="social@example.com",
                 name="Social User",
+                avatar_url="https://example.com/google-avatar.png",
                 email_verified=True,
             )
         ),
@@ -326,12 +327,14 @@ def test_google_oauth_callback_creates_social_user_with_trial(client, db_session
     assert "refresh_token" in fragment
     user_payload = fragment["user"][0]
     assert '"authProvider":"google"' in user_payload
+    assert '"avatarUrl":"https://example.com/google-avatar.png"' in user_payload
     assert '"trialEditCreditsRemaining":2' in user_payload
 
     user = db_session.query(User).filter(User.email == "social@example.com").first()
     assert user is not None
     assert user.auth_provider == "google"
     assert user.google_subject == "google-subject-1"
+    assert user.avatar_url == "https://example.com/google-avatar.png"
     assert user.trial_edit_credits_remaining == 2
 
 
@@ -346,6 +349,7 @@ def test_google_oauth_callback_rejects_email_collision_with_password_account(cli
                 subject="google-subject-1",
                 email="test@example.com",
                 name="Social User",
+                avatar_url="https://example.com/google-avatar.png",
                 email_verified=True,
             )
         ),

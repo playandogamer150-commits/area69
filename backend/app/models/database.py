@@ -51,6 +51,7 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     name = Column(String(255), nullable=True)
+    avatar_url = Column(String(1024), nullable=True)
     auth_provider = Column(String(50), default="password", nullable=False)
     google_subject = Column(String(255), unique=True, nullable=True, index=True)
     discord_subject = Column(String(255), unique=True, nullable=True, index=True)

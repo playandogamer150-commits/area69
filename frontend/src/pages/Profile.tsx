@@ -124,6 +124,20 @@ export function Profile() {
         </div>
         <p className="mb-6 ml-[30px] text-xs text-gray-500">Atualize seus dados de acesso</p>
 
+        <div className="mb-6 flex items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04]">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.name || user.email || 'Perfil'} className="h-full w-full object-cover" />
+            ) : (
+              <User className="h-6 w-6 text-gray-500" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-white">{user?.name || 'Conta AREA 69'}</p>
+            <p className="truncate text-xs text-gray-500">{user?.email || 'Sem email carregado'}</p>
+          </div>
+        </div>
+
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
             <p className="mb-1 text-[11px] uppercase tracking-wider text-gray-500">Metodo de login</p>
