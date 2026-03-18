@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { Check, CheckCircle, Copy, Key, Loader2, Mail, Shield, User } from 'lucide-react'
+import { CheckCircle, Key, Loader2, Mail, Shield, User } from 'lucide-react'
 
 import { useToast } from '@/hooks/useToast'
 import { authService } from '@/services/auth.service'
@@ -35,7 +35,6 @@ export function Profile() {
   const [saving, setSaving] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
   const [activating, setActivating] = useState(false)
-  const [copied, setCopied] = useState(false)
   const trialEditCredits = Math.max(user?.trialEditCreditsRemaining || 0, 0)
   const isLicensed = user?.licenseStatus === 'active'
   const trialBlockedReason = user?.trialBlockedReason
@@ -91,14 +90,6 @@ export function Profile() {
     } finally {
       setActivating(false)
     }
-  }
-
-  const handleCopyKey = async () => {
-    if (!user?.licenseKey) return
-
-    await navigator.clipboard.writeText(user.licenseKey)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -253,25 +244,12 @@ export function Profile() {
           </div>
         )}
 
-        <div className="mb-6">
-          <p className="mb-2 text-[11px] uppercase tracking-wider text-gray-500">Chave atual</p>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 font-mono text-sm tracking-wider text-gray-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
-              {user?.licenseKey || 'Nenhuma chave ativada'}
-            </div>
-            <button
-              type="button"
-              onClick={handleCopyKey}
-              className="flex-shrink-0 rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 text-gray-400 transition-all hover:bg-white/[0.07] hover:text-white"
-              title="Copiar chave"
-            >
-              {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-            </button>
-          </div>
-        </div>
-
         <div className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 text-sm text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-          O acesso agora e entregue por checkout externo. Depois da compra, voce recebe a chave por email e ativa manualmente abaixo.
+          {isLicensed ? (
+            <>Sua licenca ja esta ativada nesta conta. Por seguranca, a chave fica oculta e nao e exibida no painel.</>
+          ) : (
+            <>O acesso agora e entregue por checkout externo. Depois da compra, voce recebe a chave por email e ativa manualmente abaixo.</>
+          )}
         </div>
 
         <div>
