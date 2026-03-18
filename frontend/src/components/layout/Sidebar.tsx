@@ -41,6 +41,16 @@ const navItems: NavItem[] = [
   { label: 'Perfil', icon: User, path: '/profile' },
 ]
 
+function navTourId(path: string) {
+  if (path === '/dashboard') return 'nav-dashboard'
+  if (path === '/identity') return 'nav-identity'
+  if (path === '/generate') return 'nav-generate'
+  if (path === '/edit-image') return 'nav-edit-image'
+  if (path === '/gallery') return 'nav-gallery'
+  if (path === '/profile') return 'nav-profile'
+  return undefined
+}
+
 export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: SidebarProps) {
   const licensed = hasActiveLicense()
   const canEditImage = canUseImageEdit()
@@ -75,6 +85,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
             <NavLink
               to="/profile"
+              data-tour="profile-access"
               className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-600/25 bg-red-600/10 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-red-400 shadow-[0_2px_8px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.03)] transition-all hover:bg-red-600/15"
             >
               {profileLabel}
@@ -91,6 +102,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
             return (
               <div
                 key={item.path}
+                data-tour={navTourId(item.path)}
                 className={`flex cursor-not-allowed items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-sm opacity-50 ${
                   collapsed ? 'justify-center' : ''
                 }`}
@@ -112,6 +124,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
             <NavLink
               key={item.path}
               to={item.path}
+              data-tour={navTourId(item.path)}
               onClick={onMobileClose}
               className={({ isActive }) =>
                 `group relative flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all duration-200 ${
