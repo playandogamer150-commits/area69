@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, User, Zap } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Eye, EyeOff, Lock, Mail, Phone, User, Zap } from 'lucide-react'
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
 import { useToast } from '@/hooks/useToast'
 import { authService } from '@/services/auth.service'
 import { getApiErrorMessage } from '@/utils/api-error'
 import { getDeviceFingerprint } from '@/utils/deviceFingerprint'
-import { getTrialBlockedMessage } from '@/utils/trial'
 
 type AuthMode = 'login' | 'register'
 
@@ -25,8 +24,15 @@ export function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [smsCode, setSmsCode] = useState('')
+  const [smsCodeSent, setSmsCodeSent] = useState(false)
+  const [smsVerified, setSmsVerified] = useState(false)
+  const [smsVerificationToken, setSmsVerificationToken] = useState<string | null>(null)
+  const [isSendingSms, setIsSendingSms] = useState(false)
+  const [isVerifyingSms, setIsVerifyingSms] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const [turnstileResetKey, setTurnstileResetKey] = useState(0)
@@ -40,6 +46,11 @@ export function Login() {
     setMode(nextMode)
     setShowPassword(false)
     setShowConfirmPassword(false)
+    setPhoneNumber('')
+    setSmsCode('')
+    setSmsCodeSent(false)
+    setSmsVerified(false)
+    setSmsVerificationToken(null)
     setTurnstileToken(null)
     setTurnstileResetKey((current) => current + 1)
   }
@@ -47,6 +58,67 @@ export function Login() {
   const handleTurnstileTokenChange = useCallback((token: string | null) => {
     setTurnstileToken(token)
   }, [])
+
+  const handlePhoneNumberChange = (value: string) => {
+    setPhoneNumber(value)
+    setSmsCode('')
+    setSmsCodeSent(false)
+    setSmsVerified(false)
+    setSmsVerificationToken(null)
+  }
+
+  const handleSendSmsCode = useCallback(async () => {
+    const trimmedPhoneNumber = phoneNumber.trim()
+    if (!trimmedPhoneNumber) {
+      toast({ title: 'Erro', description: 'Informe seu numero de telefone', variant: 'destructive' })
+      return
+    }
+    if (turnstileSiteKey && !turnstileToken) {
+      toast({ title: 'Erro', description: 'Confirme o desafio de seguranca antes de enviar o codigo SMS', variant: 'destructive' })
+      return
+    }
+
+    setIsSendingSms(true)
+    try {
+      const response = await authService.sendSmsVerificationCode(trimmedPhoneNumber, turnstileToken || undefined)
+      setSmsCodeSent(true)
+      setSmsCode('')
+      setSmsVerified(false)
+      setSmsVerificationToken(null)
+      setTurnstileToken(null)
+      setTurnstileResetKey((current) => current + 1)
+      toast({ title: 'Codigo enviado', description: response.message })
+    } catch (error) {
+      toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao enviar codigo SMS'), variant: 'destructive' })
+    } finally {
+      setIsSendingSms(false)
+    }
+  }, [phoneNumber, toast, turnstileSiteKey, turnstileToken])
+
+  const handleVerifySmsCode = useCallback(async () => {
+    if (!phoneNumber.trim()) {
+      toast({ title: 'Erro', description: 'Informe seu numero de telefone', variant: 'destructive' })
+      return
+    }
+    if (!smsCode.trim()) {
+      toast({ title: 'Erro', description: 'Informe o codigo recebido por SMS', variant: 'destructive' })
+      return
+    }
+
+    setIsVerifyingSms(true)
+    try {
+      const response = await authService.verifySmsCode(phoneNumber.trim(), smsCode.trim())
+      setSmsVerificationToken(response.verificationToken)
+      setSmsVerified(true)
+      toast({ title: 'Telefone verificado', description: response.message })
+    } catch (error) {
+      setSmsVerified(false)
+      setSmsVerificationToken(null)
+      toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao verificar codigo SMS'), variant: 'destructive' })
+    } finally {
+      setIsVerifyingSms(false)
+    }
+  }, [phoneNumber, smsCode, toast])
 
   const handleOAuthLogin = useCallback(
     async (provider: 'google' | 'discord') => {
@@ -85,9 +157,14 @@ export function Login() {
     event.preventDefault()
     const trimmedName = name.trim()
     const trimmedEmail = email.trim().toLowerCase()
+    const trimmedPhoneNumber = phoneNumber.trim()
 
     if (!trimmedName) {
       toast({ title: 'Erro', description: 'Informe seu nome para criar a conta', variant: 'destructive' })
+      return
+    }
+    if (!trimmedPhoneNumber) {
+      toast({ title: 'Erro', description: 'Informe seu numero de telefone para receber o SMS', variant: 'destructive' })
       return
     }
     if (password.length < 8) {
@@ -98,27 +175,20 @@ export function Login() {
       toast({ title: 'Erro', description: 'As senhas nao coincidem', variant: 'destructive' })
       return
     }
-    if (turnstileSiteKey && !turnstileToken) {
-      toast({ title: 'Erro', description: 'Confirme o desafio de seguranca antes de criar a conta', variant: 'destructive' })
+    if (!smsVerificationToken) {
+      toast({ title: 'Erro', description: 'Verifique seu numero por SMS antes de criar a conta', variant: 'destructive' })
       return
     }
 
     setIsLoading(true)
     try {
       const deviceFingerprint = await getDeviceFingerprint()
-      const response = await authService.register(trimmedEmail, password, trimmedName, deviceFingerprint, turnstileToken || undefined)
-      if (response.user.trialBlockedReason && !(response.user.trialEditCreditsRemaining || 0)) {
-        toast({
-          title: 'Conta criada',
-          description: `${getTrialBlockedMessage(response.user.trialBlockedReason)} Ative a licenca no perfil para liberar a plataforma completa.`,
-        })
-      } else {
-        toast({ title: 'Conta criada', description: 'Conta criada com sucesso. Voce recebeu 2 edicoes gratis para testar a plataforma.' })
-      }
+      await authService.register(trimmedEmail, password, trimmedName, trimmedPhoneNumber, smsVerificationToken, deviceFingerprint)
+      toast({ title: 'Conta criada', description: 'Conta criada com sucesso. Agora voce ja pode entrar e ativar sua licenca.' })
       navigate('/profile')
     } catch (error) {
-      setTurnstileToken(null)
-      setTurnstileResetKey((current) => current + 1)
+      setSmsVerified(false)
+      setSmsVerificationToken(null)
       toast({ title: 'Erro', description: getApiErrorMessage(error, 'Falha ao criar conta'), variant: 'destructive' })
     } finally {
       setIsLoading(false)
@@ -230,6 +300,59 @@ export function Login() {
                       </div>
                     )}
 
+                    {mode === 'register' && (
+                      <div className="space-y-3">
+                        <label className="block text-sm font-medium tracking-wide text-gray-300">Telefone</label>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <div className="group relative flex-1">
+                            <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 transition-colors group-focus-within:text-red-500" />
+                            <input
+                              type="tel"
+                              value={phoneNumber}
+                              onChange={(event) => handlePhoneNumberChange(event.target.value)}
+                              placeholder="+55 11 99999-9999"
+                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-3 pl-10 pr-4 text-sm text-white placeholder:text-gray-600 outline-none transition-all duration-300 focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]"
+                              required
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleSendSmsCode()}
+                            disabled={isSendingSms || !phoneNumber.trim()}
+                            className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm font-medium text-white transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isSendingSms ? 'Enviando...' : smsCodeSent ? 'Reenviar SMS' : 'Enviar SMS'}
+                          </button>
+                        </div>
+                        {smsCodeSent && (
+                          <div className="flex flex-col gap-3 sm:flex-row">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={smsCode}
+                              onChange={(event) => setSmsCode(event.target.value)}
+                              placeholder="Codigo SMS"
+                              className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-gray-600 outline-none transition-all duration-300 focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(220,38,38,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleVerifySmsCode()}
+                              disabled={isVerifyingSms || !smsCode.trim()}
+                              className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {isVerifyingSms ? 'Verificando...' : 'Verificar codigo'}
+                            </button>
+                          </div>
+                        )}
+                        {smsVerified && (
+                          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                            <CheckCircle className="h-4 w-4" />
+                            Telefone verificado com sucesso.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div>
                       <label className="mb-2 block text-sm font-medium tracking-wide text-gray-300">Email</label>
                       <div className="group relative">
@@ -297,13 +420,13 @@ export function Login() {
                         <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-3">
                           <TurnstileWidget key={turnstileResetKey} siteKey={turnstileSiteKey} onTokenChange={handleTurnstileTokenChange} />
                         </div>
-                        <p className="mt-2 text-xs text-gray-500">Protecao anti-bot e anti-abuso para liberar o trial gratuito.</p>
+                        <p className="mt-2 text-xs text-gray-500">Resolva o desafio antes de enviar o codigo SMS.</p>
                       </div>
                     )}
 
                     <motion.button
                       type="submit"
-                      disabled={isLoading}
+                      disabled={isLoading || (mode === 'register' && !smsVerificationToken)}
                       whileHover={{ scale: isLoading ? 1 : 1.01 }}
                       whileTap={{ scale: isLoading ? 1 : 0.98 }}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3.5 text-sm font-semibold tracking-wide text-white shadow-[0_4px_20px_rgba(220,38,38,0.4),0_0_60px_rgba(220,38,38,0.1),inset_0_1px_0_rgba(255,255,255,0.12)] transition-all duration-300 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"

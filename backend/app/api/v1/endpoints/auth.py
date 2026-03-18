@@ -34,6 +34,11 @@ from app.core.security import (
 )
 from app.models.database import LicenseKey, User, get_db
 from app.services.oauth_service import OAuthIdentity, build_oauth_authorization_url, exchange_code_for_identity
+from app.services.sms_verification_service import (
+    SmsVerificationError,
+    check_sms_verification_code,
+    send_sms_verification_code,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 logger = logging.getLogger(__name__)
@@ -43,6 +48,8 @@ class RegisterRequest(BaseModel):
     email: str = Field(..., min_length=5, max_length=255)
     password: str = Field(..., min_length=8, max_length=128)
     name: Optional[str] = Field(default=None, max_length=255)
+    phoneNumber: str = Field(..., min_length=8, max_length=32)
+    smsVerificationToken: str = Field(..., min_length=20, max_length=4096)
     deviceFingerprint: Optional[str] = Field(default=None, max_length=512)
     turnstileToken: Optional[str] = Field(default=None, max_length=2048)
 
@@ -68,6 +75,19 @@ class RegisterRequest(BaseModel):
             return None
         normalized = value.strip()
         return normalized or None
+
+    @field_validator("phoneNumber")
+    @classmethod
+    def normalize_phone_number(cls, value: str) -> str:
+        return _normalize_phone_number(value)
+
+    @field_validator("smsVerificationToken")
+    @classmethod
+    def normalize_sms_verification_token(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("SMS verification token is required")
+        return normalized
 
     @field_validator("deviceFingerprint")
     @classmethod
@@ -151,11 +171,76 @@ class OAuthStartRequest(BaseModel):
         return normalized or None
 
 
+class SendSmsVerificationRequest(BaseModel):
+    phoneNumber: str = Field(..., min_length=8, max_length=32)
+    turnstileToken: Optional[str] = Field(default=None, max_length=2048)
+
+    @field_validator("phoneNumber")
+    @classmethod
+    def normalize_phone_number(cls, value: str) -> str:
+        return _normalize_phone_number(value)
+
+    @field_validator("turnstileToken")
+    @classmethod
+    def normalize_turnstile_token(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class VerifySmsCodeRequest(BaseModel):
+    phoneNumber: str = Field(..., min_length=8, max_length=32)
+    code: str = Field(..., min_length=4, max_length=10)
+
+    @field_validator("phoneNumber")
+    @classmethod
+    def normalize_phone_number(cls, value: str) -> str:
+        return _normalize_phone_number(value)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str) -> str:
+        normalized = "".join(character for character in value.strip() if character.isdigit())
+        if len(normalized) < 4:
+            raise ValueError("SMS verification code is required")
+        return normalized
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     user: dict
+
+
+class SmsVerificationResponse(BaseModel):
+    ok: bool = True
+    message: str
+
+
+class SmsVerificationCheckResponse(SmsVerificationResponse):
+    verificationToken: str
+
+
+def _normalize_phone_number(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("Phone number is required")
+
+    if cleaned.startswith("00"):
+        cleaned = f"+{cleaned[2:]}"
+
+    if cleaned.startswith("+"):
+        digits = "".join(character for character in cleaned[1:] if character.isdigit())
+    else:
+        digits = "".join(character for character in cleaned if character.isdigit())
+        if len(digits) in {10, 11}:
+            digits = f"55{digits}"
+
+    if not 10 <= len(digits) <= 15:
+        raise ValueError("Invalid phone number")
+    return f"+{digits}"
 
 
 def serialize_user(user: User) -> dict:
@@ -214,6 +299,26 @@ def _encode_oauth_state(provider: str, redirect_to: str, device_fingerprint_hash
         "exp": expires_at,
     }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def _encode_sms_verification_token(phone_number: str) -> str:
+    expires_at = datetime.utcnow() + timedelta(minutes=settings.SMS_VERIFICATION_TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "type": "sms_verification",
+        "phone_number": phone_number,
+        "nonce": secrets.token_urlsafe(12),
+        "exp": expires_at,
+    }
+    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def _decode_sms_verification_token(phone_number: str, verification_token: str) -> None:
+    try:
+        payload = jwt.decode(verification_token, settings.JWT_SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SMS verification expired or invalid") from exc
+    if payload.get("type") != "sms_verification" or payload.get("phone_number") != phone_number:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SMS verification expired or invalid")
 
 
 def _decode_oauth_state(provider: str, state: str) -> dict:
@@ -354,16 +459,14 @@ async def register(payload: RegisterRequest, request: Request, db: Session = Dep
     existing_user = db.query(User).filter(User.email == payload.email).first()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+    existing_phone = db.query(User).filter(User.phone_number == payload.phoneNumber).first()
+    if existing_phone:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already registered")
     if is_disposable_email(payload.email):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Disposable email addresses are not allowed")
+    _decode_sms_verification_token(payload.phoneNumber, payload.smsVerificationToken)
 
     client_ip = extract_client_ip(request)
-    if settings.TURNSTILE_SECRET_KEY:
-        if not payload.turnstileToken:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Turnstile token is required")
-        if not await verify_turnstile_token(payload.turnstileToken, client_ip):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Turnstile verification failed")
-
     signup_ip_hash = hash_abuse_signal(client_ip)
     device_fingerprint_hash = hash_abuse_signal(payload.deviceFingerprint)
     trial_blocked_reason = determine_trial_block_reason(
@@ -379,6 +482,8 @@ async def register(payload: RegisterRequest, request: Request, db: Session = Dep
         email=payload.email,
         hashed_password=get_password_hash(payload.password),
         name=payload.name,
+        phone_number=payload.phoneNumber,
+        phone_verified_at=datetime.utcnow(),
         auth_provider="password",
         is_active=True,
         license_status="inactive",
@@ -412,6 +517,52 @@ async def register(payload: RegisterRequest, request: Request, db: Session = Dep
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": serialize_user(user),
+    }
+
+
+@router.post("/sms/send-code", response_model=SmsVerificationResponse)
+async def send_sms_code(payload: SendSmsVerificationRequest, request: Request):
+    if not settings.sms_verification_configured:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="SMS verification is not configured")
+
+    client_ip = extract_client_ip(request)
+    if settings.TURNSTILE_SECRET_KEY:
+        if not payload.turnstileToken:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Turnstile token is required")
+        if not await verify_turnstile_token(payload.turnstileToken, client_ip):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Turnstile verification failed")
+
+    try:
+        await send_sms_verification_code(payload.phoneNumber)
+    except SmsVerificationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to send SMS verification code")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not send SMS verification code") from exc
+
+    return {"ok": True, "message": "Codigo enviado por SMS"}
+
+
+@router.post("/sms/verify-code", response_model=SmsVerificationCheckResponse)
+async def verify_sms_code(payload: VerifySmsCodeRequest):
+    if not settings.sms_verification_configured:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="SMS verification is not configured")
+
+    try:
+        approved = await check_sms_verification_code(payload.phoneNumber, payload.code)
+    except SmsVerificationError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to verify SMS code")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not verify SMS code") from exc
+
+    if not approved:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Codigo SMS invalido")
+
+    return {
+        "ok": True,
+        "message": "Telefone verificado",
+        "verificationToken": _encode_sms_verification_token(payload.phoneNumber),
     }
 
 

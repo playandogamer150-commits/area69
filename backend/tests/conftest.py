@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key")
 
 from app.main import app
+from app.api.v1.endpoints.auth import _encode_sms_verification_token
 from app.models.database import Base, get_db
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
@@ -48,9 +49,12 @@ def client(db_session: Session):
 
 @pytest.fixture
 def test_user_data():
+    phone_number = "+5511999999999"
     return {
         "email": "test@example.com",
         "password": "testpassword123",
         "name": "Test User",
+        "phoneNumber": phone_number,
+        "smsVerificationToken": _encode_sms_verification_token(phone_number),
         "deviceFingerprint": "test-device-fingerprint",
     }

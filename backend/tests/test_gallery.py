@@ -1,7 +1,16 @@
+from app.api.v1.endpoints.auth import _encode_sms_verification_token
 from app.models.database import GalleryItem
 
 def register_and_login(client, email: str = "gallery@example.com", password: str = "strongpass123") -> tuple[str, dict]:
-    payload = {"email": email, "password": password, "name": "Gallery User", "deviceFingerprint": f"fingerprint-{email}"}
+    phone_number = f"+55119{abs(hash(email)) % 100000000:08d}"
+    payload = {
+        "email": email,
+        "password": password,
+        "name": "Gallery User",
+        "phoneNumber": phone_number,
+        "smsVerificationToken": _encode_sms_verification_token(phone_number),
+        "deviceFingerprint": f"fingerprint-{email}",
+    }
     response = client.post("/api/v1/auth/register", json=payload)
     body = response.json()
     return body["access_token"], body["user"]
