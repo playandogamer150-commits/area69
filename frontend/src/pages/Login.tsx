@@ -203,10 +203,6 @@ export function Login() {
                 </button>
               </div>
 
-              <div className="mb-6 rounded-xl border border-amber-500/15 bg-amber-500/[0.05] px-4 py-3 text-xs leading-relaxed text-amber-100">
-                Cadastro por email e senha nao libera trial gratis. O trial sera reservado apenas para login com Google ou Discord.
-              </div>
-
               <form onSubmit={mode === 'login' ? handleLogin : handleRegister}>
                 <AnimatePresence mode="wait">
                   <motion.div
