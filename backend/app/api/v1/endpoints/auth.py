@@ -168,7 +168,6 @@ def serialize_user(user: User) -> dict:
         "isActive": user.is_active,
         "licenseStatus": user.license_status or "inactive",
         "licensePlan": user.license_plan,
-        "licenseKey": user.license_key,
         "licenseActivatedAt": user.license_activated_at.isoformat() if user.license_activated_at else None,
         "licenseExpiresAt": user.license_expires_at.isoformat() if user.license_expires_at else None,
         "trialEditCreditsRemaining": user_trial_edit_credits_remaining(user),

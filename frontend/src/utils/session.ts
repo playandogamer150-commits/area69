@@ -7,7 +7,6 @@ export interface SessionUser {
   isActive?: boolean
   licenseStatus?: string
   licensePlan?: string | null
-  licenseKey?: string | null
   licenseActivatedAt?: string | null
   licenseExpiresAt?: string | null
   trialEditCreditsRemaining?: number
