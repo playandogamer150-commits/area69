@@ -313,6 +313,7 @@ export function IdentityCreation() {
   const isValid = trainingPhotos.length >= MIN_PHOTOS && modelName.trim() && triggerWord.trim()
   const currentStatusCopy = trainingSession ? statusCopy(trainingSession.status) : null
   const canShowTrainingCard = Boolean(trainingSession)
+  const promptReadyCount = Number(Boolean(modelName.trim())) + Number(Boolean(triggerWord.trim())) + Number(trainingPhotos.length >= MIN_PHOTOS)
   const representativePreview = useMemo(() => {
     if (!trainingSession) return null
     return trainingSession.thumbnailUrl || trainingSession.previewUrl || null
@@ -327,6 +328,70 @@ export function IdentityCreation() {
         className="mb-8"
       >
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Criar Nova Identidade</h1>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.05 }}
+        className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(220,38,38,0.16),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] shadow-[0_18px_60px_rgba(0,0,0,0.42)]"
+      >
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1.15fr_0.95fr]">
+          <div>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-red-200">
+                Soul ID setup
+              </span>
+              <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400">
+                {promptReadyCount}/3 etapas prontas
+              </span>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-[2rem]">
+              Treine uma identidade com fotos certas e o resto do produto fica muito mais forte
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">
+              O segredo aqui nao e so quantidade. O que mais pesa e variedade de angulo, nitidez, iluminacao coerente e um nome/trigger que voce consiga usar com clareza depois no fluxo de geracao.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:bg-red-700"
+              >
+                Selecionar fotos
+              </button>
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-gray-100 transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+              >
+                Voltar ao dashboard
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {[
+              {
+                title: '1. Fotos fortes',
+                description: `Use pelo menos ${MIN_PHOTOS} fotos nítidas. O treino aproveita ate ${TRAINING_PHOTO_LIMIT} imagens.`,
+              },
+              {
+                title: '2. Nome limpo',
+                description: 'Escolha um nome facil de reconhecer internamente, sem ficar generico demais.',
+              },
+              {
+                title: '3. Trigger unica',
+                description: 'Defina uma palavra rara, curta e previsivel para ativar a identidade depois no produto.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="rounded-2xl border border-white/[0.08] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                <p className="text-sm font-semibold text-white">{item.title}</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </motion.div>
 
       <AnimatePresence>
@@ -440,6 +505,13 @@ export function IdentityCreation() {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="rounded-xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5 shadow-[0_4px_25px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-8"
       >
+        <div className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm text-gray-300">
+          <p className="font-semibold text-white">Antes de iniciar</p>
+          <p className="mt-2 leading-6 text-gray-400">
+            Misture close, meio corpo e enquadramentos diferentes. Evite fotos borradas, ocultacao pesada no rosto e excesso de filtros antes do treino.
+          </p>
+        </div>
+
         <div className="mb-8">
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -581,6 +653,7 @@ export function IdentityCreation() {
             placeholder="ex: minha-identidade-01"
             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-gray-600 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_1px_0_rgba(255,255,255,0.02)] focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_0_20px_rgba(220,38,38,0.06)]"
           />
+          <p className="ml-0.5 mt-1.5 text-[11px] text-gray-600">Esse nome aparece na sua organizacao interna e na selecao do Soul Character.</p>
         </div>
 
         <div className="mb-6">
@@ -595,7 +668,7 @@ export function IdentityCreation() {
             placeholder="Palavra que ativa a identidade"
             className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-gray-600 outline-none transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_1px_0_rgba(255,255,255,0.02)] focus:border-red-600/40 focus:bg-white/[0.06] focus:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_0_20px_rgba(220,38,38,0.06)]"
           />
-          <p className="ml-0.5 mt-1.5 text-[11px] text-gray-600">Use uma palavra unica que nao apareca em prompts normais.</p>
+          <p className="ml-0.5 mt-1.5 text-[11px] text-gray-600">Use uma palavra unica que nao apareca em prompts normais. Exemplo: `mavai9` ou `n3ttinface`.</p>
         </div>
 
         <div className="mb-6 h-px bg-white/[0.06]" />
@@ -674,6 +747,12 @@ export function IdentityCreation() {
                 Defina uma trigger word
               </p>
             )}
+          </div>
+        )}
+
+        {isValid && !isSubmitting && (
+          <div className="mt-4 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.05] px-4 py-3 text-[11px] leading-6 text-emerald-100">
+            Checklist pronto. As fotos, o nome do modelo e a trigger word ja estao em estado valido para iniciar o Soul ID.
           </div>
         )}
       </motion.form>
