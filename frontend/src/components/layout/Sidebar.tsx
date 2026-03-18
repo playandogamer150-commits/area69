@@ -183,7 +183,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
       </motion.aside>
 
       <aside
-        className={`hidden h-screen flex-shrink-0 flex-col border-r border-white/[0.06] bg-neutral-950/80 shadow-[4px_0_30px_rgba(0,0,0,0.4)] backdrop-blur-2xl lg:flex ${
+        className={`hidden sticky top-0 h-screen flex-shrink-0 flex-col border-r border-white/[0.06] bg-neutral-950/80 shadow-[4px_0_30px_rgba(0,0,0,0.4)] backdrop-blur-2xl lg:flex ${
           collapsed ? 'w-[68px]' : 'w-[240px]'
         }`}
       >
