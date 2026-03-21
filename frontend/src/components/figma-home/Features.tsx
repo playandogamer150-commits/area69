@@ -9,7 +9,7 @@ import {
   Zap,
   Maximize,
 } from 'lucide-react';
-import { FadeIn } from '@/components/animations';
+import { FadeIn } from '@/components/animations/FadeIn';
 
 const features = [
   {

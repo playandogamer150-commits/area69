@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Check, Sparkles, Zap, Crown, ArrowRight } from 'lucide-react';
-import { FadeIn } from '@/components/animations';
+import { FadeIn } from '@/components/animations/FadeIn';
 import { Link } from 'react-router-dom';
 
 const plans = [
