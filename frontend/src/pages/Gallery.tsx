@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import {
@@ -105,11 +105,11 @@ export function Gallery() {
     return () => {
       cancelled = true
     }
-  }, [toast])
+  }, [toast, userId])
 
-  const filtered = useMemo(
+  const filtered = useMemo<GalleryItem[]>(
     () =>
-      items.filter((item) => {
+      items.filter((item: GalleryItem) => {
         if (filter === 'favorites' && !item.favorite) return false
         if (!search.trim()) return true
         const query = search.toLowerCase()
@@ -122,9 +122,9 @@ export function Gallery() {
     [filter, items, search],
   )
 
-  const favoriteCount = items.filter((item) => item.favorite).length
-  const generationCount = items.filter((item) => item.sourceType === 'image_generation').length
-  const editCount = items.filter((item) => item.sourceType === 'image_edit').length
+  const favoriteCount = items.filter((item: GalleryItem) => item.favorite).length
+  const generationCount = items.filter((item: GalleryItem) => item.sourceType === 'image_generation').length
+  const editCount = items.filter((item: GalleryItem) => item.sourceType === 'image_edit').length
 
   const toggleFavorite = async (item: GalleryItem) => {
     try {
@@ -318,7 +318,7 @@ export function Gallery() {
           className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
         >
           <AnimatePresence>
-            {filtered.map((item, index) => (
+            {filtered.map((item: GalleryItem, index: number) => (
               <motion.div
                 layout
                 key={item.id}
