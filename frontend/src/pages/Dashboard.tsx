@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import {
   Activity,
@@ -7,7 +6,6 @@ import {
   Clock,
   Image,
   Layers,
-  Loader2,
   Sparkles,
   Wand2,
 } from 'lucide-react'
@@ -38,11 +36,6 @@ const quickActions: QuickAction[] = [
 ]
 
 const DASHBOARD_TOUR_STORAGE_KEY = 'area69:dashboard-tour-complete-v1'
-
-function isRecent(createdAt?: string) {
-  if (!createdAt) return false
-  return Date.now() - new Date(createdAt).getTime() < 1000 * 60 * 45
-}
 
 function statusBadgeClasses(status: string) {
   const normalized = status.toLowerCase()

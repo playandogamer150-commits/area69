@@ -4,6 +4,7 @@ import type { GalleryItem, GallerySourceType } from '@/types/api.types'
 
 interface SaveGalleryItemPayload {
   clientId: string
+  userId: string
   sourceType: GallerySourceType
   imageUrl: string
   prompt: string

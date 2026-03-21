@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ChevronDown,
   Download,
@@ -12,11 +11,10 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/useToast'
 import { useCurrentUserId } from '@/hooks/useCurrentUserId'
-import type { GenerationResponse, ImageEditRequest } from '@/types/api.types'
+import type { GenerationResponse, GenerateReferenceImagesUploadResponse } from '@/types/api.types'
 import { generateService } from '@/services/generate.service'
 import { galleryService } from '@/services/gallery.service'
 import { getApiErrorMessage } from '@/utils/api-error'
-import { type ImageEditHistoryItem, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
 
 const ASPECT_RATIOS: Array<'9:16' | '16:9' | '4:3' | '3:4' | '1:1' | '2:3' | '3:2'> = ['9:16', '16:9', '4:3', '3:4', '1:1', '2:3', '3:2']
 const RESOLUTIONS: Array<'720p' | '1080p'> = ['720p', '1080p']
@@ -113,15 +111,8 @@ export function ImageGeneration() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImages, setGeneratedImages] = useState<string[]>([])
   const [selectedGeneratedImage, setSelectedGeneratedImage] = useState<string | null>(null)
-  const [editHistory, setEditHistory] = useState<ImageEditHistoryItem[]>([])
 
-  useEffect(() => {
-    setEditHistory(loadImageEditHistory())
-  }, [])
-
-  const canGenerate = useMemo(() => {
-    return prompt.trim().length > 0 && referenceImages.length > 0 && !isUploadingReferences
-  }, [prompt, referenceImages, isUploadingReferences])
+  const canGenerate = prompt.trim().length > 0 && referenceImages.length > 0 && !isUploadingReferences
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -166,7 +157,7 @@ export function ImageGeneration() {
         formData.append('files', file)
       }
 
-      const response = await generateService.uploadReferenceImages(formData)
+      const response: GenerateReferenceImagesUploadResponse = await generateService.uploadReferenceImages(formData)
       const newImages: UploadedReferenceImage[] = response.saved.map((item) => ({
         id: crypto.randomUUID(),
         publicUrl: item.publicUrl,
@@ -230,11 +221,12 @@ export function ImageGeneration() {
 
   const handleSaveToGallery = async (imageUrl: string) => {
     try {
-      await galleryService.saveToGallery({
+      await galleryService.saveGalleryItem({
+        clientId: crypto.randomUUID(),
         userId,
+        sourceType: 'image_generation',
         imageUrl,
         prompt: prompt.trim(),
-        sourceType: 'image_generation',
         size: `${aspectRatio} @ ${resolution}`,
       })
       toast({

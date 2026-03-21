@@ -69,6 +69,35 @@ export interface UploadResponse {
   fileType: string;
 }
 
+export interface FaceSwapImageRequest {
+  source_image_url: string;
+  target_image_url: string;
+  lora_strength: number;
+}
+
+export interface FaceSwapVideoRequest {
+  source_video_url: string;
+  target_image_url: string;
+  lora_strength: number;
+}
+
+export interface FaceSwapResponse {
+  ok: boolean;
+  output_url?: string;
+  message?: string;
+}
+
+export interface VideoMotionRequest {
+  image_prompt: string;
+  lora_name?: string;
+  lora_strength: number;
+}
+
+export interface VideoMotionResponse {
+  ok: boolean;
+  video_url?: string;
+}
+
 export interface HealthResponse {
   status: string;
   version: string;
