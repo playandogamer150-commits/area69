@@ -84,6 +84,7 @@ export function ImageEdit() {
             legacyItems.map((item) =>
               galleryService.saveGalleryItem({
                 clientId: item.clientId || item.id,
+                userId,
                 sourceType: item.sourceType || inferLegacyGallerySourceType(item),
                 imageUrl: item.imageUrl,
                 prompt: item.prompt,
@@ -177,6 +178,7 @@ export function ImageEdit() {
   const pushHistoryItem = async (imageUrl: string, taskId: string) => {
     const savedItem = await galleryService.saveGalleryItem({
       clientId: taskId,
+      userId,
       sourceType: 'image_edit',
       imageUrl,
       prompt,

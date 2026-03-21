@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router-dom'
 import {
@@ -18,6 +18,7 @@ import {
 
 import type { GalleryItem } from '@/types/api.types'
 import { useToast } from '@/hooks/useToast'
+import { useCurrentUserId } from '@/hooks/useCurrentUserId'
 import { galleryService } from '@/services/gallery.service'
 import { getApiErrorMessage } from '@/utils/api-error'
 import { inferLegacyGallerySourceType, loadImageEditHistory, saveImageEditHistory } from '@/utils/image-edit-history'
@@ -47,6 +48,7 @@ function sourceMeta(sourceType: GalleryItem['sourceType']) {
 
 export function Gallery() {
   const { toast } = useToast()
+  const userId = useCurrentUserId()
   const [items, setItems] = useState<GalleryItem[]>([])
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
@@ -66,6 +68,7 @@ export function Gallery() {
             legacyItems.map((item) =>
               galleryService.saveGalleryItem({
                 clientId: item.clientId || item.id,
+                userId,
                 sourceType: item.sourceType || inferLegacyGallerySourceType(item),
                 imageUrl: item.imageUrl,
                 prompt: item.prompt,
