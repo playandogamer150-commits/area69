@@ -1,5 +1,5 @@
 import api from './api'
-import type { GenerationRequest, GenerationResponse } from '../types/api.types'
+import type { GenerationRequest, GenerationResponse, GenerateReferenceImagesUploadResponse } from '../types/api.types'
 
 export const generateService = {
   async generateImage(data: GenerationRequest): Promise<GenerationResponse> {
@@ -9,6 +9,13 @@ export const generateService = {
 
   async getGenerationStatus(taskId: string): Promise<GenerationResponse> {
     const response = await api.get<GenerationResponse>(`/generate/status/${taskId}`)
+    return response.data
+  },
+
+  async uploadReferenceImages(formData: FormData): Promise<GenerateReferenceImagesUploadResponse> {
+    const response = await api.post<GenerateReferenceImagesUploadResponse>('/upload/generate-reference-images', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
     return response.data
   },
 }
