@@ -127,7 +127,7 @@ export function Hero() {
             >
               <div style={{ overflow: "hidden" }}>
                 <img
-                  src="https://i.imgur.com/GEeWVvp.jpeg"
+                  src="https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_2zqAykxhZv8T7wdIyvYmthk1mqC%2Fhf_20260321_162540_987bb76a-5694-41d9-9023-8a14d57f50ec.jpeg&w=1280&q=85"
                   alt="AREA 69 AI Banner"
                   className="w-full h-auto block"
                   style={{ transform: "scale(1.15) translateX(-3%)", transformOrigin: "center center" }}
