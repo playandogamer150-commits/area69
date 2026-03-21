@@ -1,5 +1,3 @@
-'use client';
-
 import { motion } from 'framer-motion';
 import { Check, Sparkles, Zap, Crown, ArrowRight } from 'lucide-react';
 import { FadeIn } from '@/components/animations/FadeIn';

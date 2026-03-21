@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useRef, ReactNode, MouseEvent } from 'react';
 import { motion } from 'framer-motion';
 
