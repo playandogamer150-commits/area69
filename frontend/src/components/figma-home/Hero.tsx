@@ -68,7 +68,7 @@ export function Hero() {
               <Link to="/auth">
                 <Button
                   size="lg"
-                  className="bg-red-600 hover:bg-red-700 text-white px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg h-auto font-['Space_Grotesk',sans-serif] font-semibold tracking-wide shadow-[0_4px_15px_rgba(220,38,38,0.4),0_0_60px_rgba(220,38,38,0.15),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_25px_rgba(220,38,38,0.5),0_0_80px_rgba(220,38,38,0.2),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:-translate-y-0.5"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg h-auto font-['Space_Grotesk',sans-serif] font-semibold tracking-wide shadow-[0_4px_15px_rgba(16,185,129,0.4),0_0_60px_rgba(16,185,129,0.15),inset_0_1px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_25px_rgba(16,185,129,0.5),0_0_80px_rgba(16,185,129,0.2),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:-translate-y-0.5"
                 >
                   <Zap className="w-5 h-5 mr-2 drop-shadow-[0_0_6px_rgba(255,255,255,0.5)]" />
                   Criar Minha Modelo
