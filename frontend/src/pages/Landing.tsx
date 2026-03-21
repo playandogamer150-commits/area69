@@ -1,18 +1,11 @@
 import { Link } from 'react-router-dom'
 
-import { AnglesGallery } from '@/components/figma-home/AnglesGallery'
-import { BeforeAfterGallery } from '@/components/figma-home/BeforeAfterGallery'
-import { Benefits } from '@/components/figma-home/Benefits'
-import { FAQ } from '@/components/figma-home/FAQ'
-import { FinalCTA } from '@/components/figma-home/FinalCTA'
-import { Footer } from '@/components/figma-home/Footer'
 import { Hero } from '@/components/figma-home/Hero'
-import { HowItWorks } from '@/components/figma-home/HowItWorks'
-import { ProductDemo } from '@/components/figma-home/ProductDemo'
-import { Roadmap } from '@/components/figma-home/Roadmap'
-import { ScarcityTimer } from '@/components/figma-home/ScarcityTimer'
-import { Transformation } from '@/components/figma-home/Transformation'
-import { UrgencyBar } from '@/components/figma-home/UrgencyBar'
+import { Features } from '@/components/figma-home/Features'
+import { Pricing } from '@/components/figma-home/Pricing'
+import { FAQ } from '@/components/figma-home/FAQ'
+import { CTA } from '@/components/figma-home/CTA'
+import { Footer } from '@/components/figma-home/Footer'
 
 export function Landing() {
   return (
@@ -39,7 +32,7 @@ export function Landing() {
               </Link>
               <Link
                 to="/login?mode=register"
-                className="rounded-lg bg-red-600 px-3 py-2 font-['Space_Grotesk',sans-serif] text-xs font-semibold tracking-wide transition-all hover:bg-red-700 shadow-[0_2px_10px_rgba(220,38,38,0.4),0_0_40px_rgba(220,38,38,0.1)] hover:shadow-[0_4px_20px_rgba(220,38,38,0.6),0_0_60px_rgba(220,38,38,0.15)] sm:px-6 sm:text-sm"
+                className="rounded-lg bg-emerald-500 px-3 py-2 font-['Space_Grotesk',sans-serif] text-xs font-semibold tracking-wide transition-all hover:bg-emerald-600 shadow-[0_2px_10px_rgba(16,185,129,0.4),0_0_40px_rgba(16,185,129,0.1)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.6),0_0_60px_rgba(16,185,129,0.15)] sm:px-6 sm:text-sm"
               >
                 Criar Conta
               </Link>
@@ -50,17 +43,10 @@ export function Landing() {
 
       <main className="pt-16 sm:pt-20">
         <Hero />
-        <UrgencyBar />
-        <Benefits />
-        <HowItWorks />
-        <ProductDemo />
-        <BeforeAfterGallery />
-        <Transformation />
-        <AnglesGallery />
-        <Roadmap />
+        <Features />
+        <Pricing />
         <FAQ />
-        <ScarcityTimer />
-        <FinalCTA />
+        <CTA />
       </main>
 
       <Footer />

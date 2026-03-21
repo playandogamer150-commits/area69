@@ -1,82 +1,99 @@
-import { motion } from "motion/react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "./ui/accordion";
+'use client';
+
+import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { FadeIn } from '@/components/animations';
 
 const faqs = [
   {
-    question: "Preciso saber usar IA?",
-    answer: "Não. A AREA 69 AI foi desenvolvida para ser intuitiva e acessível. Você só precisa escrever prompts simples e a plataforma cuida de todo o resto. Nossa tecnologia transforma suas ideias em resultados profissionais.",
+    question: 'Como funciona a geração de imagens?',
+    answer: 'Você faz upload de uma foto de referência, escolhe o cenário/pose desejado, e nossa IA gera imagens ultra-realistas em segundos. Tudo isso com sua modelo virtual consistente.',
   },
   {
-    question: "Posso criar minha própria modelo?",
-    answer: "Sim, absolutamente. Você tem controle total sobre a criação da sua modelo virtual. Defina aparência, estilo, características e identidade visual. Sua modelo será única e exclusivamente sua.",
+    question: 'A plataforma é realmente privada?',
+    answer: 'Sim. Suas imagens e criações são armazenadas de forma criptografada e nunca são compartilhadas. Você tem controle total sobre sua galeria.',
   },
   {
-    question: "A plataforma é privada?",
-    answer: "100% privada. Seu conteúdo, suas criações e suas operações ficam totalmente protegidas. AREA 69 AI é uma plataforma fechada com acesso exclusivo apenas para membros.",
+    question: 'Posso cancelar a qualquer momento?',
+    answer: 'Absolutamente. Você pode cancelar sua assinatura a qualquer momento. Não há taxas de cancelamento ou compromissos de longo prazo.',
   },
   {
-    question: "Como funciona o acesso?",
-    answer: "Crie sua conta, ative sua licença e comece a usar imediatamente. O processo é simples, rápido e totalmente privado. Você recebe acesso completo à plataforma.",
+    question: 'Qual a qualidade das imagens geradas?',
+    answer: 'Nossas imagens são geradas em alta resolução (até 1080p no plano Starter, qualidade máxima nos planos superiores). Utilizamos modelos de última geração para realismo superior.',
   },
   {
-    question: "Preciso ter experiência?",
-    answer: "Não é necessária nenhuma experiência prévia. Nossa interface foi projetada para ser poderosa e ao mesmo tempo acessível. Desde iniciantes até profissionais, todos conseguem criar conteúdo de alto nível.",
+    question: 'Como funciona o pagamento?',
+    answer: 'Aceitamos PIX, cartão de crédito e débito. Pagamentos processados de forma segura. Você recebe acesso imediatamente após a confirmação.',
+  },
+  {
+    question: 'Posso usar as imagens comercialmente?',
+    answer: 'Os planos Padrão e Empresarial incluem licença comercial. O plano Starter é apenas para uso pessoal.',
   },
 ];
 
 export function FAQ() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
   return (
-    <section className="relative py-20 sm:py-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section id="faq" className="relative py-20 overflow-hidden">
       {/* Background */}
-      <div className="absolute inset-0 bg-black" />
+      <div className="absolute inset-0">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
 
-      {/* Depth ambient glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/[0.03] rounded-full blur-[180px]" />
+      <div className="relative z-10 max-w-3xl mx-auto px-6 lg:px-8">
+        {/* Section Header */}
+        <div className="text-center mb-12">
+          <FadeIn>
+            <span className="inline-block text-xs text-red-400 tracking-[0.3em] uppercase mb-3">
+              FAQ
+            </span>
+          </FadeIn>
+          <FadeIn delay={0.1}>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 font-['Space_Grotesk',sans-serif]">
+              Perguntas Frequentes
+            </h2>
+          </FadeIn>
+        </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-10 sm:mb-16"
-        >
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6">
-            Perguntas <span className="text-red-600">frequentes</span>
-          </h2>
-          <p className="text-base sm:text-xl text-gray-300">
-            Tudo que você precisa saber sobre a AREA 69 AI
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          <Accordion type="single" collapsible className="space-y-4">
-            {faqs.map((faq, index) => (
-              <AccordionItem
-                key={index}
-                value={`item-${index}`}
-                className="border border-white/[0.08] rounded-xl bg-gradient-to-b from-neutral-900/40 to-black/40 px-6 backdrop-blur-sm data-[state=open]:border-red-600/30 shadow-[0_4px_15px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] data-[state=open]:shadow-[0_4px_25px_rgba(0,0,0,0.5),0_0_40px_rgba(220,38,38,0.06),inset_0_1px_0_rgba(255,255,255,0.06)] transition-shadow"
+        {/* FAQ Items */}
+        <div className="space-y-3">
+          {faqs.map((faq, index) => (
+            <FadeIn key={index} delay={0.1 + index * 0.05}>
+              <motion.div
+                className="rounded-xl bg-white/[0.02] border border-white/5 overflow-hidden"
               >
-                <AccordionTrigger className="text-left text-base sm:text-lg hover:text-red-500 transition-colors py-5 sm:py-6">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-gray-300 leading-relaxed pb-6">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </motion.div>
+                <button
+                  onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                  className="w-full px-6 py-4 flex items-center justify-between text-left"
+                >
+                  <span className="font-medium text-white font-['Space_Grotesk',sans-serif]">
+                    {faq.question}
+                  </span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                      openIndex === index ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                <motion.div
+                  initial={false}
+                  animate={{
+                    height: openIndex === index ? 'auto' : 0,
+                    opacity: openIndex === index ? 1 : 0,
+                  }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <p className="px-6 pb-4 text-sm text-gray-400">
+                    {faq.answer}
+                  </p>
+                </motion.div>
+              </motion.div>
+            </FadeIn>
+          ))}
+        </div>
       </div>
     </section>
   );
