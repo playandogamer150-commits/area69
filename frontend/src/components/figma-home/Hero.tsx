@@ -36,7 +36,7 @@ export function Hero() {
                 <path d="M12 2C12 2 8 6.5 8 10.5C8 12.43 8.93 14.16 10.37 15.27C10.14 14.71 10 14.12 10 13.5C10 11.5 11.5 9.5 12 8C12.5 9.5 14 11.5 14 13.5C14 14.12 13.86 14.71 13.63 15.27C15.07 14.16 16 12.43 16 10.5C16 8 14 5 12 2Z" />
                 <path d="M12 22C9.24 22 7 19.76 7 17C7 14.5 9 12.5 9 12.5C9 12.5 9.5 14 11 14.5C11 13.5 11.5 12.5 12 12C12.5 12.5 13 13.5 13 14.5C14.5 14 15 12.5 15 12.5C15 12.5 17 14.5 17 17C17 19.76 14.76 22 12 22Z" />
               </svg>
-              <span className="text-xs sm:text-sm text-red-100">Somos a 1º Plataforma de NSFW de IA do Brasil</span>
+              <span className="text-xs sm:text-sm text-red-100">A 1º Plataforma de NSFW de IA do Brasil</span>
             </motion.div>
 
             <motion.h1
