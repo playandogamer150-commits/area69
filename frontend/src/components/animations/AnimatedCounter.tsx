@@ -5,7 +5,6 @@ interface AnimatedCounterProps {
   value: number;
   prefix?: string;
   suffix?: string;
-  duration?: number;
   className?: string;
   decimals?: number;
 }
@@ -14,7 +13,6 @@ export function AnimatedCounter({
   value,
   prefix = '',
   suffix = '',
-  duration = 2,
   className = '',
   decimals = 0,
 }: AnimatedCounterProps) {
