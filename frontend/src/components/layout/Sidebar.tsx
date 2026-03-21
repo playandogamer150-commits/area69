@@ -7,10 +7,7 @@ import {
   GalleryHorizontalEnd,
   Image,
   LayoutDashboard,
-  Repeat2,
   User,
-  UserPlus,
-  Video,
   X,
 } from 'lucide-react'
 import { canUseImageEdit, getCurrentUser, getTrialEditCreditsRemaining, hasActiveLicense } from '@/utils/session'
@@ -32,18 +29,14 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-  { label: 'Criar Identidade', icon: UserPlus, path: '/identity' },
   { label: 'Gerar Imagem', icon: Image, path: '/generate' },
   { label: 'Editar Imagem', icon: Edit, path: '/edit-image' },
-  { label: 'Face Swap', icon: Repeat2, path: '/faceswap', badge: 'EM BREVE', disabled: true },
-  { label: 'Gerar Video', icon: Video, path: '/video', badge: 'EM BREVE', disabled: true },
   { label: 'Galeria', icon: GalleryHorizontalEnd, path: '/gallery' },
   { label: 'Perfil', icon: User, path: '/profile' },
 ]
 
 function navTourId(path: string) {
   if (path === '/dashboard') return 'nav-dashboard'
-  if (path === '/identity') return 'nav-identity'
   if (path === '/generate') return 'nav-generate'
   if (path === '/edit-image') return 'nav-edit-image'
   if (path === '/gallery') return 'nav-gallery'
@@ -56,7 +49,7 @@ export function Sidebar({ collapsed, mobileOpen, onToggle, onMobileClose }: Side
   const canEditImage = canUseImageEdit()
   const trialEditCredits = getTrialEditCreditsRemaining()
   const user = getCurrentUser()
-  const blockedRoutes = new Set(['/identity', '/generate', '/gallery'])
+  const blockedRoutes = new Set(['/generate', '/gallery'])
 
   const profileLabel = licensed
     ? 'Licenca e Perfil'

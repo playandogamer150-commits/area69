@@ -11,7 +11,6 @@ import { MainLayout } from '@/components/layout/MainLayout'
 const queryClient = new QueryClient()
 const Landing = lazy(() => import('@/pages/Landing').then((module) => ({ default: module.Landing })))
 const Dashboard = lazy(() => import('@/pages/Dashboard').then((module) => ({ default: module.Dashboard })))
-const IdentityCreation = lazy(() => import('@/pages/IdentityCreation').then((module) => ({ default: module.IdentityCreation })))
 const ImageGeneration = lazy(() => import('@/pages/ImageGeneration').then((module) => ({ default: module.ImageGeneration })))
 const ImageEdit = lazy(() => import('@/pages/ImageEdit').then((module) => ({ default: module.ImageEdit })))
 const Gallery = lazy(() => import('@/pages/Gallery').then((module) => ({ default: module.Gallery })))
@@ -48,11 +47,11 @@ function App() {
               <Route path="/auth/callback" element={<OAuthCallback />} />
               <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/identity" element={<LicensedRoute><IdentityCreation /></LicensedRoute>} />
                 <Route path="/generate" element={<LicensedRoute><ImageGeneration /></LicensedRoute>} />
                 <Route path="/edit-image" element={<ImageEditRoute><ImageEdit /></ImageEditRoute>} />
                 <Route path="/faceswap" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/video" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/identity" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/gallery" element={<LicensedRoute><Gallery /></LicensedRoute>} />
                 <Route path="/profile" element={<Profile />} />
               </Route>
